@@ -1,0 +1,328 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <FxCompile Include="Assets\Shaders\blursCS.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\color.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\depthDebug.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\ForceAlpha.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\Grass.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\GrassCull.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\hlslUtilities.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\lighting.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\SobelCS.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\Tessellation.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\TreeBillboard.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\debugLine.hlsl">
+      <Filter>shader_nocompile</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="ForwardPass.cpp">
+      <Filter>MC_Engine\Pass</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_debug.cpp">
+      <Filter>MC_Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui.cpp">
+      <Filter>MC_Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_PipelineManager.cpp">
+      <Filter>MC_Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="MCEngine.cpp">
+      <Filter>MC_Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="ProfileRecorder.cpp">
+      <Filter>MC_Engine\Profiler</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene_Ch7.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene_Empty.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene_grass.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderLib.cpp">
+      <Filter>shader_nocompile\shader_cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderLibDx.cpp">
+      <Filter>shader_nocompile\shader_cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="modelLoader.cpp">
+      <Filter>Core\Loader</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Camera.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\GeometryGenerator.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\d3dApp_d3Init.cpp">
+      <Filter>Core\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\d3dApp_logging.cpp">
+      <Filter>Core\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\d3dUtil.cpp">
+      <Filter>Core\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\d3dApp.cpp">
+      <Filter>Core\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\MathHelper.cpp">
+      <Filter>Core\Helper</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\DDSTextureLoader.cpp">
+      <Filter>Core\Loader</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\GameTimer.cpp">
+      <Filter>Core\Timer</Filter>
+    </ClCompile>
+    <ClCompile Include="Includes\imgui\imgui_impl_dx12.cpp">
+      <Filter>Core\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Includes\imgui\imgui_impl_win32.cpp">
+      <Filter>Core\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Includes\imgui\imgui_tables.cpp">
+      <Filter>Core\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Includes\imgui\imgui_widgets.cpp">
+      <Filter>Core\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Includes\imgui\imgui.cpp">
+      <Filter>Core\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Includes\imgui\imgui_demo.cpp">
+      <Filter>Core\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Includes\imgui\imgui_draw.cpp">
+      <Filter>Core\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\FrameResources.cpp">
+      <Filter>MC_Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_Controls.cpp">
+      <Filter>MC_Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_Picker.cpp">
+      <Filter>MC_Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="DescHeapManager.cpp">
+      <Filter>MC_Engine\DescriptorHeap</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui_DescHeapVis.cpp" />
+    <ClCompile Include="BarrierManager.cpp">
+      <Filter>MC_Engine\BarrierManager</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="MCEngine.h">
+      <Filter>MC_Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene_Ch7.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene_Empty.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene_grass.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderLib.h">
+      <Filter>shader_nocompile\shader_cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderMacros.h">
+      <Filter>shader_nocompile\shader_cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="Assets\Shaders\SharedTypes.h">
+      <Filter>shader_nocompile</Filter>
+    </ClInclude>
+    <ClInclude Include="modelLoader.h">
+      <Filter>Core\Loader</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderItem.h">
+      <Filter>MC_Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>99_other</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>99_other</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h">
+      <Filter>99_other</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Camera.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\GeometryGenerator.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\d3dUtil.h">
+      <Filter>Core\d3dApp</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\d3dx12.h">
+      <Filter>Core\d3dApp</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\d3dApp.h">
+      <Filter>Core\d3dApp</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\MathHelper.h">
+      <Filter>Core\Helper</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\UploadHelper.h">
+      <Filter>Core\Helper</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DDSTextureLoader.h">
+      <Filter>Core\Loader</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\GameTimer.h">
+      <Filter>Core\Timer</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\imgui_impl_dx12.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\imgui_impl_win32.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\imgui_internal.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\imstb_rectpack.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\imstb_textedit.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\imstb_truetype.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\imconfig.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\imgui.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FrameResource.h">
+      <Filter>MC_Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="MC_Picker.h">
+      <Filter>MC_Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="DescHeapManager.h">
+      <Filter>MC_Engine\DescriptorHeap</Filter>
+    </ClInclude>
+    <ClInclude Include="Singleton.h">
+      <Filter>Core\BaseClass</Filter>
+    </ClInclude>
+    <ClInclude Include="MC_Types.h">
+      <Filter>MC_Engine\MC_Types</Filter>
+    </ClInclude>
+    <ClInclude Include="BarrierManager.h">
+      <Filter>MC_Engine\BarrierManager</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md">
+      <Filter>99_other</Filter>
+    </None>
+    <None Include="packages.config">
+      <Filter>99_other</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="shader_nocompile">
+      <UniqueIdentifier>{c1181f76-6b2a-4531-8864-192cfda3d929}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{aa6f87e9-db7a-4c2e-92db-97321ae28192}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Loader">
+      <UniqueIdentifier>{5cf50389-534b-44c8-b6fc-cd38a231aab9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Timer">
+      <UniqueIdentifier>{0749db77-4a36-4e5f-b49e-02f2f9a2c5da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Helper">
+      <UniqueIdentifier>{9cd5a784-8aa8-4b4a-8510-8aa2b198971a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine">
+      <UniqueIdentifier>{e8abe2d3-2e7e-474b-8e5c-50684983e007}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\Profiler">
+      <UniqueIdentifier>{461706cb-5d5f-42a9-a149-cd154085b4b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shader_nocompile\shader_cpp">
+      <UniqueIdentifier>{1f284671-b942-4a05-a35a-74ed2963c213}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="99_other">
+      <UniqueIdentifier>{62a304f5-9dba-41c2-8c26-6e684669c489}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene">
+      <UniqueIdentifier>{f074fe1b-19ef-46f2-8307-b6928e179e0e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\Pass">
+      <UniqueIdentifier>{90b31714-642e-4424-acde-3ea56b1e9b10}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\d3dApp">
+      <UniqueIdentifier>{0e23ba4a-b4c7-4e8f-ada6-dfb790484a44}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\DescriptorHeap">
+      <UniqueIdentifier>{174f2442-7cc9-43d8-b8d7-b44fc0915f8c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\imgui">
+      <UniqueIdentifier>{c598821a-2541-4508-9793-278380a001c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\BaseClass">
+      <UniqueIdentifier>{f78928ce-a758-4f9b-9070-8f7ba421b4e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\MC_Types">
+      <UniqueIdentifier>{6792ad88-466a-4478-994e-97c7d2158dbb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="99_other\Plans">
+      <UniqueIdentifier>{d9811fb8-85d1-4c9c-b262-7b39ebc0cbc0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\BarrierManager">
+      <UniqueIdentifier>{15ac8ae3-69f6-40ee-9c06-6550354444e6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="MC.ico">
+      <Filter>99_other</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="MC_main.rc">
+      <Filter>99_other</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

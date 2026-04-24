@@ -1,0 +1,296 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="소스 파일">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="헤더 파일">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="리소스 파일">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="소스 파일\d3dApp">
+      <UniqueIdentifier>{b5e64672-eebc-4481-be5b-2db0c957097f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\GameTimer">
+      <UniqueIdentifier>{c0a0fa77-4389-43de-87a0-6ae5039de729}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Math">
+      <UniqueIdentifier>{78e78d0e-321a-4e27-8f0b-06d7cc20f267}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\imgui">
+      <UniqueIdentifier>{d852068e-6d25-4969-919b-b5843a7bb611}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\GeometryGenerator">
+      <UniqueIdentifier>{6dde6682-8783-4a6a-b17a-03fc1aa1a899}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Loader">
+      <UniqueIdentifier>{b4a4afa0-2e69-4863-8001-e40b6b33cc00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\myIMGUI">
+      <UniqueIdentifier>{860e22cd-210e-42f8-88d5-0c6bb2e6e2f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\myDebug">
+      <UniqueIdentifier>{33371202-b758-4f10-86a2-12107cb6c5bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\nonShader">
+      <UniqueIdentifier>{68652b23-1f01-4a50-97cb-7fdc3eb2c3ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\DrawPass">
+      <UniqueIdentifier>{ac867000-5d09-4adc-a6fe-a1cc01ab0178}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Profiler">
+      <UniqueIdentifier>{e6278672-be8c-4efb-aeec-26911cdf3b8f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\Scene">
+      <UniqueIdentifier>{1dfdbca9-1ec9-44df-9800-2a5733412fed}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="framework.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\d3dx12.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\d3dApp.h">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\UploadHelper.h">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Includes\imgui\imconfig.h">
+      <Filter>소스 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Includes\imgui\imgui.h">
+      <Filter>소스 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Includes\imgui\imgui_impl_dx12.h">
+      <Filter>소스 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Includes\imgui\imgui_impl_win32.h">
+      <Filter>소스 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Includes\imgui\imgui_internal.h">
+      <Filter>소스 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Includes\imgui\imstb_rectpack.h">
+      <Filter>소스 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Includes\imgui\imstb_textedit.h">
+      <Filter>소스 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Includes\imgui\imstb_truetype.h">
+      <Filter>소스 파일\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\MathHelper.h">
+      <Filter>소스 파일\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\GeometryGenerator.h">
+      <Filter>소스 파일\GeometryGenerator</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\FrameResource.h">
+      <Filter>소스 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\GameTimer.h">
+      <Filter>소스 파일\GameTimer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\DDSTextureLoader.h">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\d3dUtil.h">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClInclude>
+    <ClInclude Include="modelLoader.h">
+      <Filter>소스 파일\Loader</Filter>
+    </ClInclude>
+    <ClInclude Include="MCEngine.h">
+      <Filter>소스 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="resource1.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="resource2.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderLib.h">
+      <Filter>소스 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderMacros.h">
+      <Filter>소스 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Camera.h">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClInclude>
+    <ClInclude Include="Assets\Shaders\SharedTypes.h">
+      <Filter>소스 파일\nonShader</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene_Ch7.h">
+      <Filter>소스 파일\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene_Empty.h">
+      <Filter>소스 파일\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene.h">
+      <Filter>소스 파일\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderItem.h">
+      <Filter>소스 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene_grass.h">
+      <Filter>소스 파일\Scene</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="MCEngine.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\d3dApp_d3Init.cpp">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\d3dApp_logging.cpp">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\d3dApp.cpp">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\d3dUtil.cpp">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\GameTimer.cpp">
+      <Filter>소스 파일\GameTimer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Includes\imgui\imgui.cpp">
+      <Filter>소스 파일\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Includes\imgui\imgui_demo.cpp">
+      <Filter>소스 파일\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Includes\imgui\imgui_draw.cpp">
+      <Filter>소스 파일\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Includes\imgui\imgui_impl_dx12.cpp">
+      <Filter>소스 파일\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Includes\imgui\imgui_impl_win32.cpp">
+      <Filter>소스 파일\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Includes\imgui\imgui_tables.cpp">
+      <Filter>소스 파일\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Includes\imgui\imgui_widgets.cpp">
+      <Filter>소스 파일\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\MathHelper.cpp">
+      <Filter>소스 파일\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\GeometryGenerator.cpp">
+      <Filter>소스 파일\GeometryGenerator</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\FrameResources.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\DDSTextureLoader.cpp">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="modelLoader.cpp">
+      <Filter>소스 파일\Loader</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui.cpp">
+      <Filter>소스 파일\myIMGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_debug.cpp">
+      <Filter>소스 파일\myDebug</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_PipelineManager.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderLib.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderLibDx.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="ProfileRecorder.cpp">
+      <Filter>소스 파일\Profiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ForwardPass.cpp">
+      <Filter>소스 파일\DrawPass</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Camera.cpp">
+      <Filter>소스 파일\d3dApp</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene_Empty.cpp">
+      <Filter>소스 파일\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene_Ch7.cpp">
+      <Filter>소스 파일\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene_grass.cpp">
+      <Filter>소스 파일\Scene</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="MC_main.rc">
+      <Filter>리소스 파일</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="small.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Assets\Shaders\color.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\blursCS.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\depthDebug.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\ForceAlpha.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\hlslUtilities.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\lighting.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\TreeBillboard.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\SobelCS.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\Tessellation.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\Grass.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Assets\Shaders\GrassCull.hlsl">
+      <Filter>소스 파일\nonShader</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+    <None Include="..\..\DX12 notes\Devlog.md" />
+    <None Include="packages.config" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,27 @@
+# Build output
+x64/
+Debug/
+Release/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.aps
+*.ncb
+*.sdf
+*.opensdf
+ipch/
+
+# Compiled shader PDBs
+MC_Engine/HLSL PDB/
+
+# Profile results
+MC_Engine/ProfileResults/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VSCode personal prefs
+.vscode/
