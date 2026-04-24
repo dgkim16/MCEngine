@@ -100,13 +100,33 @@ Each stage writes to a UAV; the final stage writes the swap-chain back buffer be
 
 ## Roadmap
 
-Tracked items, in priority order:
+Three phases against an August 2026 v1.0 target.
 
-1. Resource wrapper for persistent GPU buffers.
-2. Resource lifetime and barrier abstraction — subsumes the current `BarrierManager`.
-3. Descriptor heap optimization (multi-heap, ring segments, retirement).
-4. Frame graph / render graph.
-5. Scene save and load.
+### Phase 1 — Foundations *(Apr–May 2026, in progress)*
+
+Instrumentation and abstractions every later phase assumes.
+
+- State-tracking `CommandContext` that replaces every manual `ResourceBarrier` call site. Extends the current `BarrierManager` into automatic `from`-state inference, redundancy elimination, and cross-callsite merging.
+- Scene serialization to JSON with an ImGui outliner and inspector. Save, close, reopen, load — the scene is identical; hand-edits to the JSON survive a reload.
+- GPU timestamp queries feeding rolling averages into `ProfileRecorder`. Every major pass reports GPU milliseconds next to its CPU time, validated against PIX.
+
+### Phase 2 — Visual quality *(May–Jun 2026)*
+
+- Cook-Torrance metallic-roughness PBR, validated against Filament's matball at matched inputs.
+- Image-based lighting: diffuse irradiance cubemap, specular prefilter, BRDF LUT.
+- Cascaded shadow maps, four cascades with 5×5 rotated-Poisson PCF.
+- Clustered-forward lighting on a 16×9×24 grid, point lights first.
+- GTAO at half resolution with temporal and spatial denoise, integrated into indirect diffuse.
+- Intel Sponza 2022 at locked 60 fps / 1080p, lit by the full stack.
+
+### Phase 3 — Architecture and release *(Jul–Aug 2026)*
+
+- Split into `MCCore` (static library, headless), `MCEditor` (ImGui host), and `MCRuntime` (shippable executable that never links ImGui or the debug layer).
+- Runtime export — an editor menu entry produces a `.zip` a reviewer downloads, unzips, and double-clicks.
+- Archetype-based ECS replacing `std::unordered_map<std::string, RenderItem>`. `view<Transform>` over 100k entities under 1 ms.
+- Offline asset cooker: glTF 2.0 and PNG/HDR in, meshoptimizer-optimized binaries and BC-compressed DDS out. `MCRuntime` ships with zero Assimp.
+- Intel Sponza 2022 demo scene with scripted camera flythrough.
+- `v1.0` tag on August 30 with a 90-second demo reel.
 
 ## References
 
