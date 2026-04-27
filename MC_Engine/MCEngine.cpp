@@ -6,7 +6,7 @@
 #include "Scene_Empty.h"
 #include "Scene_grass.h"
 #include "UploadHelper.h"
-#include "DescHeapManager.h"
+#include "DescHeapManager.h"	// singleton - thus not saved as member variable inside MCEngine.h
 #include <DirectXColors.h>
 #include <WindowsX.h>
 #include <dxgidebug.h>
@@ -138,6 +138,9 @@ bool MCEngine::Initialize()
 		return false;
 	std::cout << "D3DAPP init Success\n"; OutputDebugString(L"D3DAPP init Success\n");
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
+
+	mBarrierManager;
+
 	LoadTextures();                  std::cout << "LoadTextures() success\n" << std::endl; OutputDebugString(L"LoadTextures() success\n");
 	BuildRootSignature();            std::cout << "BuildRootSignature() success\n" << std::endl; OutputDebugString(L"BuildRootSignature() success\n");
 	BuildShadersAndInputLayout();    std::cout << "BuildShadersAndInputLayout() success\n" << std::endl; OutputDebugString(L"BuildShadersAndInputLayout() success\n");
@@ -965,7 +968,7 @@ void MCEngine::BuildSceneRenderTargetDescriptors()
 	dhm.CreateDsv(mSceneDepth, D3D12_DSV_FLAG_NONE, DXGI_FORMAT_D24_UNORM_S8_UINT, mScene4xMsaaState, 0);
 
 	// Scene Color: RTV + SRV
-	dhm.CreateRtv2d(mSceneColor, mSceneFormat, 0);
+	dhm.CreateRtv2d(mSceneColor, mSceneFormat, mScene4xMsaaState, 0);
 	dhm.CreateSrv2d(mSceneColor, mSceneFormat, mScene4xMsaaState, MC_VIEW_TIER_STATIC);
 
 	// Scene Depth: typeless SRV view of the D24 resource
@@ -1070,6 +1073,10 @@ void MCEngine::GrassCullDispatch()
 		sizeof(UINT));
 
 	// 2. Transition visible buffer and counter to UAV for CS writes
+	mBarrierManager.TransitionState(gs->mGrassVisibleBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	mBarrierManager.TransitionState(gs->mGrassCounterBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	mBarrierManager.FlushBarriers(mCommandList.Get());
+	/*
 	CD3DX12_RESOURCE_BARRIER toUAV[] = {
 		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassVisibleBuffer.mResource.Get(),
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
@@ -1079,7 +1086,7 @@ void MCEngine::GrassCullDispatch()
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
 	};
 	mCommandList->ResourceBarrier(_countof(toUAV), toUAV);
-
+	*/
 	// 3. Update CullCB — extract world-space frustum planes on CPU, send to shader
 	// mMainPassCB.gViewProj stores Transpose(M_vp), so its rows equal the columns of M_vp.
 	// Gribb-Hartmann (row-vector DX convention): planes come from columns of M_vp.
@@ -1119,6 +1126,7 @@ void MCEngine::GrassCullDispatch()
 	UINT groups = (gs->mTotalGrassInstances + 63) / 64;
 	mCommandList->Dispatch(groups, 1, 1);
 
+	/*
 	// 5. UAV barriers: ensure CS writes are visible before reads
 	// this stalls subsequent commands until writes to UAVs are complete
 	CD3DX12_RESOURCE_BARRIER uavBarriers[] = {
@@ -1126,8 +1134,17 @@ void MCEngine::GrassCullDispatch()
 		CD3DX12_RESOURCE_BARRIER::UAV(gs->mGrassCounterBuffer.mResource.Get()),
 	};
 	mCommandList->ResourceBarrier(_countof(uavBarriers), uavBarriers);
+	*/
+	mBarrierManager.InsertUAVBarrier(gs->mGrassVisibleBuffer);
+	mBarrierManager.InsertUAVBarrier(gs->mGrassCounterBuffer);
+	// mBarrierManager.FlushBarriers(mCommandList.Get());
 
+	mBarrierManager.TransitionState(gs->mGrassVisibleBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(gs->mGrassCounterBuffer, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	mBarrierManager.TransitionState(gs->mGrassIndirectArgsBuffer, D3D12_RESOURCE_STATE_COPY_DEST);
+	mBarrierManager.FlushBarriers(mCommandList.Get());
 	// 6. Transition: visible → SRV; counter → COPY_SOURCE; indirect args → COPY_DEST
+	/*
 	CD3DX12_RESOURCE_BARRIER postCS[] = {
 		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassVisibleBuffer.mResource.Get(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
@@ -1140,6 +1157,7 @@ void MCEngine::GrassCullDispatch()
 			D3D12_RESOURCE_STATE_COPY_DEST),
 	};
 	mCommandList->ResourceBarrier(_countof(postCS), postCS);
+	*/
 
 	// 7. Copy visible count into indirect args InstanceCount field
 	mCommandList->CopyBufferRegion(
@@ -1148,6 +1166,7 @@ void MCEngine::GrassCullDispatch()
 		gs->mGrassCounterBuffer.mResource.Get(), 0,
 		sizeof(UINT));
 
+	/*
 	// 8. Transition indirect args → INDIRECT_ARGUMENT; counter → COPY_DEST for next frame
 	CD3DX12_RESOURCE_BARRIER postCopy[] = {
 		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassIndirectArgsBuffer.mResource.Get(),
@@ -1158,6 +1177,10 @@ void MCEngine::GrassCullDispatch()
 			D3D12_RESOURCE_STATE_COPY_DEST),
 	};
 	mCommandList->ResourceBarrier(_countof(postCopy), postCopy);
+	*/
+	mBarrierManager.TransitionState(gs->mGrassCounterBuffer, D3D12_RESOURCE_STATE_COPY_DEST);
+	mBarrierManager.TransitionState(gs->mGrassIndirectArgsBuffer, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+	mBarrierManager.FlushBarriers(mCommandList.Get());
 
 	PIXEndEvent(mCommandList.Get());
 }
@@ -1432,8 +1455,6 @@ void MCEngine::CreateRtvAndDsvDescriptorHeaps() {
 
 void MCEngine::Draw(const GameTimer& gt)
 {
-	
-	
 	auto cmdListAlloc = mCurrFrameResource->CmdListAlloc;
 
 	// Reuse the memory associated with command recording.
@@ -1464,9 +1485,9 @@ void MCEngine::Draw(const GameTimer& gt)
 	mCommandList->RSSetScissorRects(1, &mSceneScissorRect);
 
 	// Indicate a state transition on the resource usage.
-	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(mSceneColor.mResource.Get(),
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	mCommandList->ResourceBarrier(1, &transition);
+	mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	mBarrierManager.TransitionState(mSceneDepth, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	mBarrierManager.FlushBarriers(mCommandList.Get());
 
 	// Clear the back buffer and depth buffer.
 	auto sceneRtv = mSceneColor.RTVs[0].hCpu;
@@ -1484,14 +1505,12 @@ void MCEngine::Draw(const GameTimer& gt)
 	//! PASS 2: render depth to debug depth texture
 	// ==========================================================
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "Depth normalization pass");
-	std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
-	barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mSceneColor.mResource.Get(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mSceneDepth.mResource.Get(),
-		D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mDepthDebugColor.mResource.Get(),
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
-	mCommandList->ResourceBarrier((UINT)barriers.size(), barriers.data());
+
+	// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mSceneDepth, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	mBarrierManager.FlushBarriers(mCommandList.Get());
+	
 	mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["depthDebug_MSAA"].Get() : mPSOs["depthDebug"].Get());
 	auto depthDebugRtv = mDepthDebugColor.RTVs[0].hCpu;
 	mCommandList->OMSetRenderTargets(1, &depthDebugRtv, TRUE, nullptr);
@@ -1508,12 +1527,9 @@ void MCEngine::Draw(const GameTimer& gt)
 	mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	mCommandList->DrawInstanced(3, 1, 0, 0);
 
-	std::vector<CD3DX12_RESOURCE_BARRIER> barriers2;
-	barriers2.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mDepthDebugColor.mResource.Get(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	barriers2.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mSceneDepth.mResource.Get(),
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE));
-	mCommandList->ResourceBarrier((UINT)barriers2.size(), barriers2.data());
+	// mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	// mBarrierManager.TransitionState(mSceneDepth, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	// mBarrierManager.FlushBarriers(mCommandList.Get());
 
 	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 2);
 	PIXEndEvent(mCommandList.Get());
@@ -1522,57 +1538,36 @@ void MCEngine::Draw(const GameTimer& gt)
 	// ==========================================================
 	if (mScene4xMsaaState) {
 		PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "MSAA resolve pass");
-		std::vector<CD3DX12_RESOURCE_BARRIER> barriers3a;
-		struct srcDstStr {
-			ID3D12Resource* src;
-			ID3D12Resource* dst;
-			DXGI_FORMAT format;
-		};
-		std::vector<srcDstStr> srcDst = {
-			{mSceneColor.mResource.Get(), mViewportColor.mResource.Get(),mSceneFormat}
-		};
-		for (auto& rr : srcDst) {
-			barriers3a.push_back(CD3DX12_RESOURCE_BARRIER::Transition(rr.src,
-				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RESOLVE_SOURCE));
-			barriers3a.push_back(CD3DX12_RESOURCE_BARRIER::Transition(rr.dst,
-				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RESOLVE_DEST));
-		}
-		mCommandList->ResourceBarrier((UINT)barriers3a.size(), barriers3a.data());
-		for(auto& rr:srcDst)
-			mCommandList->ResolveSubresource(rr.dst, 0, rr.src, 0, rr.format);
+
+		mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+		mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_RESOLVE_DEST);
+		mBarrierManager.FlushBarriers(mCommandList.Get());
 		
-		std::vector<CD3DX12_RESOURCE_BARRIER> barriers3b;
-		for (auto& rr : srcDst) {
-			barriers3b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(rr.src,
-				D3D12_RESOURCE_STATE_RESOLVE_SOURCE,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-			barriers3b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(rr.dst,
-				D3D12_RESOURCE_STATE_RESOLVE_DEST,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-		}
-		mCommandList->ResourceBarrier((UINT)barriers3b.size(), barriers3b.data());
+		mCommandList->ResolveSubresource(mViewportColor.mResource.Get(), 0, mSceneColor.mResource.Get(), 0, mSceneFormat);
+
+		// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		// mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		// mBarrierManager.FlushBarriers(mCommandList.Get());
+		
 		PIXEndEvent(mCommandList.Get());
 	}
 	else {
 		PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "Copy scene texture to viewport texture pass");
-		std::vector<CD3DX12_RESOURCE_BARRIER> barriers3a;
-		barriers3a.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mSceneColor.mResource.Get(),
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_SOURCE));
-		barriers3a.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mViewportColor.mResource.Get(),
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,D3D12_RESOURCE_STATE_COPY_DEST));
-		mCommandList->ResourceBarrier((UINT)barriers3a.size(), barriers3a.data());
+
+		mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_COPY_SOURCE);
+		mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_COPY_DEST);
+		mBarrierManager.FlushBarriers(mCommandList.Get());
 
 		mCommandList->CopyResource(mViewportColor.mResource.Get(),mSceneColor.mResource.Get());
 
-		std::vector<CD3DX12_RESOURCE_BARRIER> barriers3b;
-		barriers3b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mSceneColor.mResource.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-		barriers3b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mViewportColor.mResource.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-		mCommandList->ResourceBarrier((UINT)barriers3b.size(), barriers3b.data());
+		// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		// BarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		// mBarrierManager.FlushBarriers(mCommandList.Get());
 		PIXEndEvent(mCommandList.Get());
 	}
 	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 3);
 	// ==========================================================
-	//! PASS 4: (COMPUTE) Force alpha on texture to one (and do sobel on toggle)
+	//! PASS 4: (COMPUTE) Copy RGB values from mViewColor to mViewportNoAlpha, but with Alpha = 1.0f
 	// ==========================================================
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(255,0,0), "PSO to forceAlphaOne");
 	mCommandList->SetPipelineState(mPSOs["forceAlphaOne"].Get());
@@ -1582,6 +1577,10 @@ void MCEngine::Draw(const GameTimer& gt)
 	UINT numGroupsX = (UINT)ceilf(mSceneViewWidth / 16.0f);
 	UINT numGroupsY = (UINT)ceilf(mSceneViewHeight / 16.0f);
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "compute : force alpha pass");
+	mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	mBarrierManager.FlushBarriers(mCommandList.Get());
+
 	mCommandList->Dispatch(numGroupsX, numGroupsY, 1);
 	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 4);
 	PIXEndEvent(mCommandList.Get());
@@ -1591,21 +1590,11 @@ void MCEngine::Draw(const GameTimer& gt)
 	// copy to blur0 >> loop blur between blur0 and blur1 >> copy back into viewport
 	if (blurValues.enabled || (mSobelType == SobelType::Gaussain && mIsSobel)) {
 		PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "compute : blur pass");
-		std::vector<CD3DX12_RESOURCE_BARRIER> barriers5a;
-		barriers5a.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mViewportNoAlpha.mResource.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE));
-		barriers5a.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mBlurred0.mResource.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COPY_DEST));
-		mCommandList->ResourceBarrier((UINT)barriers5a.size(), barriers5a.data());
+		mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_COPY_SOURCE);
+		mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_COPY_DEST);
+		mBarrierManager.FlushBarriers(mCommandList.Get());
 
 		mCommandList->CopyResource(mBlurred0.mResource.Get(), mViewportNoAlpha.mResource.Get());
-
-		std::vector<CD3DX12_RESOURCE_BARRIER> barriers5b;
-		barriers5b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mViewportNoAlpha.mResource.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-		barriers5b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mBlurred0.mResource.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ));
-		mCommandList->ResourceBarrier((UINT)barriers5b.size(), barriers5b.data());
 
 		auto blurCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(CSB_blur));
 		D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss0 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress();
@@ -1614,29 +1603,20 @@ void MCEngine::Draw(const GameTimer& gt)
 		UINT blurGroupsY = (UINT)ceilf(mSceneViewHeight / 256.0f);
 		for (int i = 0; i < blurValues.blurIter; i++) {
 			// HORIZONTAL BLUR
-			auto bTr0 = CD3DX12_RESOURCE_BARRIER::Transition(mBlurred1.mResource.Get(),
-				D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			mCommandList->ResourceBarrier(1, &bTr0);
-
+			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			mBarrierManager.TransitionState(mBlurred1, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			mBarrierManager.FlushBarriers(mCommandList.Get());
 			mCommandList->SetPipelineState(mPSOs["horzBlur"].Get());
 			mCommandList->SetComputeRootConstantBufferView(0, blurCBaddresss0);
 			mCommandList->Dispatch(blurGroupsX, mSceneViewHeight, 1);
 
-			std::vector<CD3DX12_RESOURCE_BARRIER> barriers5c;
-			barriers5c.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mBlurred1.mResource.Get(),
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ));
-			barriers5c.push_back(CD3DX12_RESOURCE_BARRIER::Transition(mBlurred0.mResource.Get(),
-				D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-			mCommandList->ResourceBarrier((UINT)barriers5c.size(), barriers5c.data());
-
 			// VERTICAL BLUR
+			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			mBarrierManager.TransitionState(mBlurred1, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			mBarrierManager.FlushBarriers(mCommandList.Get());
 			mCommandList->SetPipelineState(mPSOs["vertBlur"].Get());
 			mCommandList->SetComputeRootConstantBufferView(0, blurCBaddresss1);
 			mCommandList->Dispatch(mSceneViewWidth, blurGroupsY, 1);
-
-			auto bTr1 = CD3DX12_RESOURCE_BARRIER::Transition(mBlurred0.mResource.Get(),
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ);
-			mCommandList->ResourceBarrier(1, &bTr1);
 		}
 		PIXEndEvent(mCommandList.Get());
 	}
@@ -1647,21 +1627,30 @@ void MCEngine::Draw(const GameTimer& gt)
 		PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "compute : sobel outline");
 		UINT sobelGroupsX = (UINT)ceilf(mSceneViewWidth / 8.0f);
 		UINT sobelGroupsY = (UINT)ceilf(mSceneViewHeight / 8.0f);
-		std::vector<CD3DX12_RESOURCE_BARRIER> startSobel = {
-			CD3DX12_RESOURCE_BARRIER::Transition(mViewportColor.mResource.Get(),	D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_GENERIC_READ),
-			CD3DX12_RESOURCE_BARRIER::Transition(mSobelOutput.mResource.Get(),	D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-		};
-		mCommandList->ResourceBarrier((INT)startSobel.size(), startSobel.data());
+
+		switch (mSobelType) {
+		case SobelType::Default:
+			mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			break;
+		case SobelType::Depth:
+			mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			break;
+		case SobelType::Gaussain:
+		default:
+			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			break;
+		}
+		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		mBarrierManager.FlushBarriers(mCommandList.Get());
+
 		mCommandList->SetPipelineState(mPSOs["sobel"].Get());
 		D3D12_GPU_VIRTUAL_ADDRESS sobelCBaddress = mSobelUploadBuffer->Resource()->GetGPUVirtualAddress();
 		mCommandList->SetComputeRootConstantBufferView(0, sobelCBaddress);
 		mCommandList->Dispatch(sobelGroupsX, sobelGroupsY, 1);
-
-		std::vector<CD3DX12_RESOURCE_BARRIER> endSobel = { 
-			CD3DX12_RESOURCE_BARRIER::Transition(mViewportColor.mResource.Get(),D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
-			CD3DX12_RESOURCE_BARRIER::Transition(mSobelOutput.mResource.Get(),D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ),
-		};
-		mCommandList->ResourceBarrier((INT)endSobel.size(), endSobel.data());
+		/*
+		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_GENERIC_READ);
+		mBarrierManager.FlushBarriers(mCommandList.Get());
+		*/
 		PIXEndEvent(mCommandList.Get());
 	}
 	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 6);
@@ -1691,7 +1680,7 @@ void MCEngine::Draw(const GameTimer& gt)
 	PIXEndEvent(mCommandList.Get());
 
 	//mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 8);
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(
+	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_PRESENT
@@ -1703,12 +1692,6 @@ void MCEngine::Draw(const GameTimer& gt)
 	//mCommandList->ResolveQueryData(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0,FrameResource::GpuTimerCount, mCurrFrameResource->GpuTimestampReadback.Get(), 0);
 	PIXEndEvent(mCommandList.Get());	// Frame 
 	ThrowIfFailed(mCommandList->Close());
-
-	/*
-	// Restore CBV heap for next frame
-	ID3D12DescriptorHeap* cbvHeaps[] = { mCbvHeap.Get() };
-	mCommandList->SetDescriptorHeaps(_countof(cbvHeaps), cbvHeaps);
-	*/
 	// ==========================================================
 	
 	// Add the command list to the queue for execution.

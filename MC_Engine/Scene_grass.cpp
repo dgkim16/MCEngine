@@ -396,6 +396,12 @@ void Scene_grass::BuildGpuCullingBuffers(MCEngine& engine) {
 	//      mGrassVisibleBuffer    — NON_PIXEL_SHADER_RESOURCE (transitions to UAV then back)
 	//      mGrassCounterBuffer    — COPY_DEST (reset copy, then transitions to UAV then back)
 	//      mGrassIndirectArgsBuffer — INDIRECT_ARGUMENT
+	engine.GetBarrierManager().TransitionState(mGrassVisibleBuffer,D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	engine.GetBarrierManager().TransitionState(mGrassCounterBuffer, D3D12_RESOURCE_STATE_COPY_DEST);
+	engine.GetBarrierManager().TransitionState(mGrassIndirectArgsBuffer, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+	engine.GetBarrierManager().FlushBarriers(engine.GetCmdList());
+
+	/*
 	CD3DX12_RESOURCE_BARRIER initBarriers[] = {
 		CD3DX12_RESOURCE_BARRIER::Transition(
 			mGrassVisibleBuffer.mResource.Get(),
@@ -410,7 +416,9 @@ void Scene_grass::BuildGpuCullingBuffers(MCEngine& engine) {
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT),
 	};
+
 	cmdList->ResourceBarrier(_countof(initBarriers), initBarriers);
+	*/
 }
 
 

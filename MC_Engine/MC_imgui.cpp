@@ -498,8 +498,13 @@ void MCEngine::IMGUI_UPDATE() {
 
 
 void MCEngine::IMGUI_RENDERDRAWDATA() {
-	// ID3D12DescriptorHeap* imguiHeaps[] = { mSrvHeap.Get() };
-	// mCommandList->SetDescriptorHeaps(_countof(imguiHeaps), imguiHeaps);
+	// for all resources that will be used in IMGUI::Image, change state to D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE 
+	// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.FlushBarriers(mCommandList.Get());
+
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
 }
 

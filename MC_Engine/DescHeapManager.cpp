@@ -269,10 +269,10 @@ void DescHeapManager::CreateUavBuffer(MCBuffer& mcResource, ID3D12Resource* coun
 }
 
 
-void DescHeapManager::CreateRtv2d(MCTexture& mcResource, DXGI_FORMAT format, UINT mipSlice) {
+void DescHeapManager::CreateRtv2d(MCTexture& mcResource, DXGI_FORMAT format, bool isMSAA, UINT mipSlice) {
 	ID3D12Resource* resource = mcResource.mResource.Get();
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-	rtvDesc.ViewDimension         = D3D12_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.ViewDimension         = isMSAA ? D3D12_RTV_DIMENSION_TEXTURE2DMS : D3D12_RTV_DIMENSION_TEXTURE2D;
 	rtvDesc.Format                = format;
 	rtvDesc.Texture2D.MipSlice    = mipSlice;
 	rtvDesc.Texture2D.PlaneSlice  = 0;

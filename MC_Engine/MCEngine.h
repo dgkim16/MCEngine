@@ -6,6 +6,7 @@
 #include "Camera.h"
 #include "RenderItem.h"
 #include "MC_Types.h"
+#include "BarrierManager.h" // not a singleton - saved as a member variable of MCEngine
 
 class Scene_grass; // forward declaration for GPU grass culling
 
@@ -55,6 +56,8 @@ public:
 	// --- Accessors used by Scene::Load() ---
 	ID3D12Device*              GetDevice()  const { return md3dDevice.Get(); }
 	ID3D12GraphicsCommandList* GetCmdList() const { return mCommandList.Get(); }
+	BarrierManager& GetBarrierManager() { return mBarrierManager; }
+	const BarrierManager& GetBarrierManager() const { return mBarrierManager; }
 	MCTexture* GetTexture(const std::string& name) const;
 	const std::unordered_map<int, std::string>& GetTextureIndexTracker() const { return mTexturesIndexStrTracker; }
 
@@ -71,6 +74,8 @@ public:
 	std::vector<float> GetScreenSize() { return { mSceneViewWidth, mSceneViewHeight }; }
 	XMFLOAT2& GetSceneMousePos() { return mSceneMousePos; }
 
+
+	
 protected:
 	virtual void CreateRtvAndDsvDescriptorHeaps()override;	// overridden to set dsvHeapDesc.NumDescriptors = 2 instead of 1.
 
@@ -146,6 +151,8 @@ private:
 	std::vector<float> CalcGaussWeights(float sigma);
 
 private:
+	BarrierManager mBarrierManager;
+
 	//! START- for rendering to Texture instead of directly to back buffer
 	MCTexture mSceneColor, mSceneDepth, mDepthDebugColor;
 	MCTexture mViewportColor, mViewportNoAlpha;
@@ -204,14 +211,12 @@ private:
 	UINT mTextureSrvCount = 0;									// number of texture Srvs
 
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
-	
 	std::unordered_map<std::string, std::unique_ptr<MCTexture>> mTextures;
 
 	std::unordered_map<int, std::string> mTexturesIndexStrTracker;			// need a better way of keeping track of resources.
 	std::unordered_map<std::string, int> mTexturesStrIndexTracker;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 	std::unordered_map<int, std::string> mMaterialsIndexTracker;
-	// std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;		// use ShaderLib singleton instead
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 
 	std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
@@ -306,4 +311,6 @@ private:
 
 	// --- ImGui UI set values
 	bool mShowDescHeapViewer = true;
+
+	// --- 
 };

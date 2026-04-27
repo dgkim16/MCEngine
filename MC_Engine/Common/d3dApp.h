@@ -3,7 +3,9 @@
 #include "d3dUtil.h"
 #include "GameTimer.h"
 
+#ifndef _DEBUG 
 #define _DEBUG
+#endif
 
 // Link necessary d3d12 libraries.
 #pragma comment(lib,"d3dcompiler.lib")

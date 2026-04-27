@@ -8,8 +8,8 @@
 
 class BarrierManager {
 public:
-	BarrierManager(ID3D12GraphicsCommandList* m_cmdList) : cmdList(m_cmdList) {};
-	void TransitionState(MCResource& res, D3D12_RESOURCE_STATES target, bool immediate = false);
+	BarrierManager() = default;
+	void TransitionState(MCResource& res, D3D12_RESOURCE_STATES target);
 	void InsertUAVBarrier(MCResource& res);
 
 	void SplitTransitionState(MCResource& res, D3D12_RESOURCE_STATES target) { assert(false, "not yet implemented"); }
@@ -18,6 +18,5 @@ public:
 	void FlushBarriers(ID3D12GraphicsCommandList* cmdList);
 
 private:
-	ID3D12GraphicsCommandList* cmdList;
 	std::vector<D3D12_RESOURCE_BARRIER> mPendingBarriers;
 };

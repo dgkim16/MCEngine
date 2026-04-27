@@ -9,7 +9,7 @@ bool CanPromoteNonSim(D3D12_RESOURCE_STATES target) {
 	return false;
 }
 
-void BarrierManager::TransitionState(MCResource& res, D3D12_RESOURCE_STATES target, bool immediate) {
+void BarrierManager::TransitionState(MCResource& res, D3D12_RESOURCE_STATES target) {
 	if (res.m_currState == target) {
 		return;
 	}
@@ -22,8 +22,6 @@ void BarrierManager::TransitionState(MCResource& res, D3D12_RESOURCE_STATES targ
 	barrier.Transition.StateAfter = target;
 	mPendingBarriers.push_back(barrier);
 	res.m_currState = target;
-	if (immediate)
-		FlushBarriers(cmdList);
 }
 
 void BarrierManager::InsertUAVBarrier(MCResource& res) {

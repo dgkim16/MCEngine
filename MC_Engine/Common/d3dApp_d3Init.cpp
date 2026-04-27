@@ -289,11 +289,22 @@ void D3DApp::OnResize() {
 
 bool D3DApp::InitDirect3D() {
 #if defined(DEBUG) || defined(_DEBUG) 
+	// ============== DEBUG LAYER =================
 	// Enable the D3D12 debug layer.
 	{
+		
 		ComPtr<ID3D12Debug> debugController;
 		ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)));
 		debugController->EnableDebugLayer();
+		/*
+		ComPtr<ID3D12Debug1> debugController1;
+		if (SUCCEEDED(debugController.As(&debugController1))) {
+			// enable GPU-Based Validation (GBV) before creating a device with the debug layer enabled.
+			// overhead is non-trivial, but not signficant. Make sure to disable this when using PIX to profile performance.
+			debugController1->SetEnableGPUBasedValidation(TRUE);
+		}
+		*/
+		
 	}
 #endif
 	create_Device();

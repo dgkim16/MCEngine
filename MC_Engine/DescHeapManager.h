@@ -108,7 +108,7 @@ public:
 	void CreateUavBuffer( MCBuffer& resource, ID3D12Resource* counterResource = nullptr, UINT64 counterOffset = 0, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
 
 	// RTV/DSV are CPU-only (not shader-visible) and never tiered; no copy step.
-	void CreateRtv2d( MCTexture& resource, DXGI_FORMAT format, UINT mipSlice = 0);
+	void CreateRtv2d( MCTexture& resource, DXGI_FORMAT format, bool isMSAA = false, UINT mipSlice = 0);
 	void CreateDsv( MCTexture& resource, D3D12_DSV_FLAGS flags, DXGI_FORMAT format, bool isMSAA = false, UINT mipSlice = 0);
 
 	void QueueRemovalFromSet(int idx, DHInfo& map);

@@ -54,6 +54,7 @@ public:
 
 	virtual void ResetSceneResources() {}
 
+
 	// --- Scene-owned data (moved into/out of the engine on switch) ---
 	std::vector<std::unique_ptr<RenderItem>>  allRitems;
 	std::set<RenderItem*>                     layers[(int)RenderLayer::Count];
