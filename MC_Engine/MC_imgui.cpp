@@ -283,7 +283,8 @@ void MCEngine::IMGUI_UPDATE() {
 		if (ImGui::Checkbox("Enable BoundingBox", &enableBoundsCheck))
 			if (!enableBoundsCheck)
 				DirtyAllRenderItems();
-		if (ImGui::Checkbox("Scene MSAA", &mScene4xMsaaState)) // slightly unsynced, but gets synced naturally by next round of frames (thus trivial)
+		ImGui::Text("MSAA : %d ", mScene4xMsaaState); ImGui::SameLine();
+		if (ImGui::Checkbox("Request MSAA", &mScene4xMsaaStateImGuiRequest)) // slightly unsynced, but gets synced naturally by next round of frames (thus trivial)
 			mSceneSizeDirty = true;
 		ImGui::Text("CPU Frame: %.3f ms", mTimer.DeltaTime() * 1000.0f);
 		ImGui::Text("GPU Frame: %.3f ms", (float)mCurrFrameResource->totalGpuFrameMs);
@@ -334,8 +335,7 @@ void MCEngine::IMGUI_UPDATE() {
 			ImGui::SliderFloat("Fog Start", &mFogStart, 0.01f, 150.0f);
 			if (ImGui::Button("reset fogrange")) mFogRange = 1000.0f; ImGui::SameLine();
 			ImGui::SliderFloat("Fog Range", &mFogRange,0.1f, 5000.0f);
-			if (ImGui::ColorPicker4("Fog Color", &mFogColor.x))
-				mSceneSizeDirty = true;
+			ImGui::ColorPicker4("Fog Color", &mFogColor.x); // filter `D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE` on the info queue
 		}
 
 		if (ImGui::CollapsingHeader("Visualization")) {
@@ -421,14 +421,20 @@ void MCEngine::IMGUI_UPDATE() {
 		}
 		*/
 		if (ImGui::CollapsingHeader("Outline Settings")) {
-			if (ImGui::Checkbox("Sobel outlines", &mIsSobel) && mSobelType == SobelType::Gaussain)
+			if (ImGui::Checkbox("Sobel outlines", &mIsSobel) && mSobelType == SobelType::Gaussain) {
 				blurValues.enabled = mIsSobel;
+				mSobelCBFramesDirty = gNumFrameResources;
+			}
 			int cursobel = (int)mSobelType;
-			if (ImGui::Combo("Sobel target", &cursobel, sobel_list.data(), (int)sobel_list.size()))
+			if (ImGui::Combo("Sobel target", &cursobel, sobel_list.data(), (int)sobel_list.size())) {
 				mSobelType = (SobelType)cursobel;
+				mSobelCBFramesDirty = gNumFrameResources;
+			}
 		}
 		if (ImGui::CollapsingHeader("Blur Settings")) {
-			ImGui::Checkbox("Blur toggle", &blurValues.enabled);
+			if (ImGui::Checkbox("Blur toggle", &blurValues.enabled)) {
+				mSobelCBFramesDirty = gNumFrameResources;	// needed because blurValues.enabled swaps the Width slot between mBlurred0 and mViewportNoAlpha
+			}
 			bool blurSigChng = ImGui::SliderFloat("sigma", &blurValues.sigma, 0.1f, 10.0f);
 			bool blurItrChng = ImGui::SliderInt("blur iter", &blurValues.blurIter, 1, 10);
 			if (blurSigChng || blurItrChng)
@@ -500,8 +506,9 @@ void MCEngine::IMGUI_UPDATE() {
 void MCEngine::IMGUI_RENDERDRAWDATA() {
 	// for all resources that will be used in IMGUI::Image, change state to D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE 
 	// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	mBarrierManager.FlushBarriers(mCommandList.Get());
 

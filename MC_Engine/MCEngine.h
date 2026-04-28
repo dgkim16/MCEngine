@@ -104,6 +104,7 @@ private:
 	void UpdateDepthDebugCB(const GameTimer& gt);
 	void UpdateBlurCB(const GameTimer& gt);
 	void UpdateSobelCB(const GameTimer& gt);
+	void UpdateSobelState();
 
 	void BuildDescriptorHeaps();	// create descriptor heap for cbv
 	void BuildConstantBufferViews(); // ch7 - replaced BuildConstantBuffer with BuildConstantBufferViews
@@ -165,9 +166,9 @@ private:
 	// live on the MCTexture members above; descriptors on DescHeapManager).
 	// All three are re-uploaded on resize because they cache bindless offsets
 	// of post-process MCTextures, which shift when those textures are re-created.
-	std::unique_ptr<UploadBuffer<CSB_default>> mForceAlphaUploadBuffer;
+	std::unique_ptr<UploadBuffer<CSB_default>> mForceAlphaUploadBuffer;	// static-only, will break when toggled
 	std::unique_ptr<UploadBuffer<CSB_blur>> mBlurUploadBuffer;
-	std::unique_ptr<UploadBuffer<CSB_default>> mSobelUploadBuffer;
+	
 
 	D3D12_VIEWPORT mSceneViewport = {};
 	D3D12_RECT mSceneScissorRect = {};
@@ -192,6 +193,7 @@ private:
 	bool mSceneImageHovered = false;
 	XMFLOAT2 mSceneMousePos = { 0.0f, 0.0f };
 	bool mScene4xMsaaState = false;
+	bool mScene4xMsaaStateImGuiRequest = mScene4xMsaaState; // request by ImGui. Later update mScene4xMsaaState to this value just before OnSceneResize()
 	//! END- for rendering to Texture instead of directly to back buffer
 
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
@@ -265,6 +267,7 @@ private:
 		Depth,
 		Count
 	} mSobelType = SobelType::Gaussain;
+	int mSobelCBFramesDirty = gNumFrameResources;
 
 	struct FrameProfiler {
 		bool        recording = false;

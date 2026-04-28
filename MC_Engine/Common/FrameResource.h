@@ -27,6 +27,8 @@ public:
     std::unique_ptr<UploadBuffer<InstanceData>> InstanceCB = nullptr;
     std::unique_ptr<UploadBuffer<GrassInstanceData>> GrassInstanceCB = nullptr;
 
+    std::unique_ptr<UploadBuffer<CSB_default>> SobelCB;
+
     // for checking if this frame is still in use by GPU
     UINT64 Fence = 0;
 

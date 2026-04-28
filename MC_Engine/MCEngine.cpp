@@ -84,7 +84,6 @@ MCEngine::~MCEngine()
 	mBlurred1.mResource.Reset();
 	mForceAlphaUploadBuffer.reset();
 	mBlurUploadBuffer.reset();
-	mSobelUploadBuffer.reset();
 	for (int i = 0; i < (int)mDebugLineVB.size(); ++i) {
 		if (mDebugLineVBMapped[i]) {
 			mDebugLineVB[i]->Unmap(0, nullptr);
@@ -243,6 +242,14 @@ void MCEngine::Update(GameTimer& gt)
 		CloseHandle(eventHandle);
 	}
 	ReadBackGpuTimer(dt);
+	
+	if (mSceneSizeDirty) {
+		FlushCommandQueue();
+		mScene4xMsaaState = mScene4xMsaaStateImGuiRequest;
+		OnSceneResize();
+		mSceneSizeDirty = false;
+	}
+
 	IMGUI_UPDATE();
 	TickProfiler(dt);
 	const float kTransitionSpeed = 4.0f; // units per second
@@ -254,12 +261,6 @@ void MCEngine::Update(GameTimer& gt)
 	UpdateInstanceData(gt);
 	UpdateMainPassCB(gt);
 	UpdateMaterialCBs(gt);
-	
-	if (mSceneSizeDirty) {
-		FlushCommandQueue();
-		OnSceneResize();
-		mSceneSizeDirty = false;
-	}
 
 	UpdateDepthDebugCB(gt);
 	UpdateBlurCB(gt);
@@ -555,6 +556,7 @@ void MCEngine::UpdateBlurCB(const GameTimer& gt) {
 }
 
 void MCEngine::UpdateSobelCB(const GameTimer& gt) {
+	if (mSobelCBFramesDirty <= 0) return;
 	CSB_default csbs;
 	// INputIndex, OutputIndex, Widht, Height	
 	// corresponds to...
@@ -572,13 +574,33 @@ void MCEngine::UpdateSobelCB(const GameTimer& gt) {
 			break;
 	}
 	if (blurValues.enabled)
-		csbs.Width = (INT)mBlurred0.SRVs[0].offset;
+		csbs.Width = (INT)mBlurred0.SRVs[0].offset;	// width = gSceneIndex
 	else
 		csbs.Width = (INT)mViewportNoAlpha.SRVs[0].offset; // viewport with no alpha srv
 	csbs.OutputIndex = (INT)mSobelOutput.UAVs[0].offset;
 	
-	mSobelUploadBuffer.get()->CopyData(0, csbs);
-	mSobelUploadBuffer.get()->Resource()->SetName(L"mSobelUploadBuffer");
+	mCurrFrameResource->SobelCB.get()->CopyData(0, csbs);
+	--mSobelCBFramesDirty;
+}
+
+void MCEngine::UpdateSobelState() {
+	switch (mSobelType) {
+	case SobelType::Default:
+		mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		break;
+	case SobelType::Depth:
+		mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		break;
+	case SobelType::Gaussain:
+	default:
+		mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		break;
+	}
+	if (blurValues.enabled) // sobel without blur, but blur itself is enabled
+		mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	else
+		mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 }
 
 void MCEngine::BuildDescriptorHeaps()
@@ -734,6 +756,7 @@ void MCEngine::OnSceneResize()
 	BuildSceneRenderTarget();
 	if (mCbvSrvUavHeap != nullptr)
 		BuildSceneRenderTargetDescriptors();
+	mSobelCBFramesDirty = gNumFrameResources; // with descriptors rebuit, .offset value inside csbs may change. So need to update.
 
 }
 
@@ -754,8 +777,7 @@ void MCEngine::BuildSceneRenderTarget()
 		dhm.QueueRemoval_Texture(mSobelOutput);
 		// GPU is idle here (caller flushed the command queue before resize). Drain the
 		// deferred-free list immediately so BuildSceneRenderTargetDescriptors below
-		// reuses the just-retired slots. Keeps hGpu.ptr values captured earlier this
-		// frame (e.g. ImGui's ImTextureID) pointing at refreshed descriptors.
+		// reuses the just-retired slots. NOTE: Their order is NOT guaranteed
 		dhm.FlushPending();
 	}
 	mSceneColor = {};
@@ -1325,14 +1347,17 @@ void MCEngine::BuildComputeShaderConstantBufferResources()
 	mForceAlphaUploadBuffer->CopyData(0, forceAlphaCB);
 	mForceAlphaUploadBuffer->Resource()->SetName(L"mForceAlphaUploadBuffer");
 
-	mSobelUploadBuffer = std::make_unique<UploadBuffer<CSB_default>>(md3dDevice.Get(), 1, 1);
 	CSB_default csbs;
-	csbs.InputIndex  = (INT)mBlurred0.SRVs[0].offset;
+	csbs.InputIndex = (INT)mBlurred0.SRVs[0].offset;
 	csbs.OutputIndex = (INT)mSobelOutput.UAVs[0].offset;
-	csbs.Width       = (INT)mViewportNoAlpha.SRVs[0].offset;
-	csbs.Height      = (INT)mDepthDebugColor.SRVs[0].offset;
-	mSobelUploadBuffer.get()->CopyData(0, csbs);
-	mSobelUploadBuffer.get()->Resource()->SetName(L"mSobelUploadBuffer");
+	csbs.Width = (INT)mViewportNoAlpha.SRVs[0].offset;
+	csbs.Height = (INT)mDepthDebugColor.SRVs[0].offset;
+	int i = 0;
+	for (auto& fr : mFrameResources) {
+		fr->SobelCB.get()->CopyData(0, csbs);
+		std::wstring name =	std::format(L"mSobelCB_{}", i);
+		fr->SobelCB.get()->Resource()->SetName(name.c_str());
+	}
 	
 	auto blurBuf = std::make_unique<UploadBuffer<CSB_blur>>(md3dDevice.Get(), 2, 1);
 	CSB_blur blurCB0;
@@ -1595,7 +1620,6 @@ void MCEngine::Draw(const GameTimer& gt)
 		mBarrierManager.FlushBarriers(mCommandList.Get());
 
 		mCommandList->CopyResource(mBlurred0.mResource.Get(), mViewportNoAlpha.mResource.Get());
-
 		auto blurCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(CSB_blur));
 		D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss0 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress();
 		D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss1 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress() + blurCBByteSize;
@@ -1628,29 +1652,13 @@ void MCEngine::Draw(const GameTimer& gt)
 		UINT sobelGroupsX = (UINT)ceilf(mSceneViewWidth / 8.0f);
 		UINT sobelGroupsY = (UINT)ceilf(mSceneViewHeight / 8.0f);
 
-		switch (mSobelType) {
-		case SobelType::Default:
-			mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			break;
-		case SobelType::Depth:
-			mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			break;
-		case SobelType::Gaussain:
-		default:
-			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			break;
-		}
-		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		UpdateSobelState();
 		mBarrierManager.FlushBarriers(mCommandList.Get());
 
 		mCommandList->SetPipelineState(mPSOs["sobel"].Get());
-		D3D12_GPU_VIRTUAL_ADDRESS sobelCBaddress = mSobelUploadBuffer->Resource()->GetGPUVirtualAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS sobelCBaddress = mCurrFrameResource->SobelCB->Resource()->GetGPUVirtualAddress();
 		mCommandList->SetComputeRootConstantBufferView(0, sobelCBaddress);
 		mCommandList->Dispatch(sobelGroupsX, sobelGroupsY, 1);
-		/*
-		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_GENERIC_READ);
-		mBarrierManager.FlushBarriers(mCommandList.Get());
-		*/
 		PIXEndEvent(mCommandList.Get());
 	}
 	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 6);
@@ -1664,7 +1672,7 @@ void MCEngine::Draw(const GameTimer& gt)
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "set back buffer as render target");
 	auto transition_BB = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	mCommandList->ResourceBarrier(1, &transition_BB);
+	mCommandList->ResourceBarrier(1, &transition_BB); // TODO(barrier-tracker): Back Buffers are not wrapped by MCTexture, and I don't see a reason to do so. When splitting into runtime / editor, may be (phase 3)
 	mCommandList->RSSetViewports(1, &mScreenViewport);
 	mCommandList->RSSetScissorRects(1, &mScissorRect);
 	auto backRtv = CurrentBackBufferView();

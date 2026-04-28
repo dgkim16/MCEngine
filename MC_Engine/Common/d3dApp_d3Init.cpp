@@ -268,7 +268,7 @@ void D3DApp::OnResize() {
 		D3D12_RESOURCE_STATE_COMMON,
 		D3D12_RESOURCE_STATE_DEPTH_WRITE
 	);
-	mCommandList->ResourceBarrier(1, &transition);
+	mCommandList->ResourceBarrier(1, &transition); // TODO(barrier-tracker): D3DApp backbone's Resource are not wrapped by MCTexture. When splitting into runtime / editor, may be (phase 3)
 	OutputDebugString(L"OnResize - Tyring to close cmdlist...\n");
 	ThrowIfFailed(mCommandList->Close());
 	OutputDebugString(L"OnResize - SUCCESS to close cmdlist...\n");
@@ -289,25 +289,47 @@ void D3DApp::OnResize() {
 
 bool D3DApp::InitDirect3D() {
 #if defined(DEBUG) || defined(_DEBUG) 
+	// detect PIX at launch
+	bool runningUnderPix =
+		GetModuleHandleW(L"WinPixGpuCapturer.dll") != nullptr ||
+		GetModuleHandleW(L"WinPixTimingCapturer.dll") != nullptr;
+
 	// ============== DEBUG LAYER =================
 	// Enable the D3D12 debug layer.
 	{
-		
 		ComPtr<ID3D12Debug> debugController;
 		ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)));
 		debugController->EnableDebugLayer();
-		/*
-		ComPtr<ID3D12Debug1> debugController1;
-		if (SUCCEEDED(debugController.As(&debugController1))) {
-			// enable GPU-Based Validation (GBV) before creating a device with the debug layer enabled.
-			// overhead is non-trivial, but not signficant. Make sure to disable this when using PIX to profile performance.
-			debugController1->SetEnableGPUBasedValidation(TRUE);
+		if (!runningUnderPix) {
+			ComPtr<ID3D12Debug1> debugController1;
+			if (SUCCEEDED(debugController.As(&debugController1))) {
+				// enable GPU-Based Validation (GBV) before creating a device with the debug layer enabled.
+				// overhead is non-trivial, but not signficant. Make sure to disable this when using PIX to profile performance.
+				debugController1->SetEnableGPUBasedValidation(TRUE);
+			}
 		}
-		*/
-		
 	}
 #endif
 	create_Device();
+#if defined(DEBUG) || defined(_DEBUG) 
+	Microsoft::WRL::ComPtr<ID3D12InfoQueue> infoQueue;
+	if (SUCCEEDED(md3dDevice.As(&infoQueue)))
+	{
+		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+		if(!runningUnderPix)
+			infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+
+		D3D12_MESSAGE_ID denyIds[] = {
+			D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+		};
+
+		D3D12_INFO_QUEUE_FILTER filter = {};
+		filter.DenyList.NumIDs = _countof(denyIds);
+		filter.DenyList.pIDList = denyIds;
+		infoQueue->AddStorageFilterEntries(&filter);
+	}
+#endif
 	create_Fence_Query_Descriptor_size();
 	check_MSAAx4();
 #ifdef _DEBUG

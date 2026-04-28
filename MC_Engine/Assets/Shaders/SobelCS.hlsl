@@ -2,9 +2,9 @@
 // #define MY_IMPL
 cbuffer TexturesIndexBuffer : register(b0)
 {
-    uint gBlurIndex;
-    uint gOutputIndex;
-    uint gSceneIndex;
+    uint gBlurIndex;    // outline soble created with values read from ...
+    uint gOutputIndex; // result written to...
+    uint gSceneIndex; // apply sobel outline on top of... (Height field - horrific naming, I know)
     uint PADDING;
 };
 

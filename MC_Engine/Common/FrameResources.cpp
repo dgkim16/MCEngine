@@ -10,6 +10,9 @@ FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT objCount
 	DepthCB = std::make_unique<UploadBuffer<DebugDepthConstants>>(device, objCount, true);  // FrameResource.h
     InstanceCB = instanceCount > 0 ? std::make_unique < UploadBuffer <InstanceData>>(device, instanceCount, false) : nullptr;  // FrameResource.h 
     GrassInstanceCB = grassInstanceCount > 0 ? std::make_unique<UploadBuffer<GrassInstanceData>>(device, grassInstanceCount, false) : nullptr;
+    SobelCB = std::make_unique<UploadBuffer<CSB_default>>(device, 1, 1);
+    
+
     D3D12_QUERY_HEAP_DESC qhDesc = {};
     qhDesc.Count = GpuTimerCount;
     qhDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
