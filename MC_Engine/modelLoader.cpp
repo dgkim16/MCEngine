@@ -18,7 +18,7 @@ using namespace DirectX;
 
 bool ModelLoader::LoadObjToVertexIndexBuffers(
 	const std::string& filename,
-	std::vector<Vertex>& outVertices,
+	std::vector<MCVertex>& outVertices,
 	std::vector<uint32_t>& outIndices)
 {
 	outVertices.clear();
@@ -53,7 +53,7 @@ bool ModelLoader::LoadObjToVertexIndexBuffers(
 
 		for (unsigned int i = 0; i < mesh->mNumVertices; ++i)
 		{
-			Vertex v{};
+			MCVertex v{};
 
 			// Position
 			v.Pos = XMFLOAT3(

@@ -7,8 +7,14 @@
 #include "RenderItem.h"
 #include "MC_Types.h"
 #include "BarrierManager.h" // not a singleton - saved as a member variable of MCEngine
-
-class Scene_grass; // forward declaration for GPU grass culling
+#include "SceneSerialization.h"
+#include "MCSceneManager.h"
+#include "CBFreeList.h"
+#include "JsonMigrator.h"
+#include "MCMaterialManager.h"
+#include "MCTextureManager.h"
+#include "MCMeshSourceManager.h"
+#include "MCGrassCullingModule.h"
 
 #include <set>
 #include <vector>
@@ -28,7 +34,7 @@ struct CSB_blurValues // blur related values changed via imgui — CPU-only, not
 };
 
 // RenderItem and RenderLayer are now in RenderItem.h
-class Scene;
+class MCScene;
 
 class MCEngine : public D3DApp
 {
@@ -46,35 +52,69 @@ public:
 	// --- Light management (will be moved to scene-specific on a later date) ---
 	void RegisterLights();
 
-	// --- Scene management (public so ImGui and scenes can call SwitchScene) ---
-	void RegisterScene(std::unique_ptr<Scene> scene);
-	void RequestReload() { reloadScene = true; }
-	void SwitchScene(const std::string& name);
-	Scene* GetActiveScene() const { return mActiveScene; }
-	const std::unordered_map<std::string, std::unique_ptr<Scene>>& GetScenes() const { return mScenes; }
+	// --- MCScene management (public so ImGui and scenes can call SwitchScene) ---
+	const JsonMigrator& Migrator() const { return mMigrator; }
+	MCMaterialManager& Materials() { return mMaterialManager; }
+	const MCMaterialManager& Materials() const { return mMaterialManager; }
+	MCTextureManager& Textures() { return mTextureManager; }
+	const MCTextureManager& Textures() const { return mTextureManager; }
+	MCMeshSourceManager& Meshes() { return mMeshSourceManager; }
+	const MCMeshSourceManager& Meshes() const { return mMeshSourceManager; }
+	MCSceneManager& Scenes() { return mSceneManager; }
+	const MCSceneManager& Scenes() const { return mSceneManager; }
 
-	// --- Accessors used by Scene::Load() ---
+	// D9 Step 5a — bracket the cmdlist around MCSceneManager::Reload so module
+	// OnLoad calls (e.g. MCGrassCullingModule's GPU instance buffer upload) can
+	// record commands. Safe to call from ImGui handlers (cmdlist closed at that
+	// phase). Always returns the cmdlist to the closed state Draw expects, even
+	// on exception.
+	void ReloadActiveSceneNow();
+	void RequestReload() { reloadScene = true; }
+	void MarkSceneDirty() { mSceneDirty = true; }	// every module's OnImGui slider that mutates scene-serialized state must call this - Generalize for any future module's OnImGui.
+
+	// --- Engine-side helpers exposed for MCSceneManager (D8 Step 1c) ---
+	// Phase-2 ticket: replace the SceneAccess proxy + these helpers with
+	// typed accessors. Until then, these are the manager's bridge into engine
+	// internals it needs at scene-switch time.
+	using D3DApp::FlushCommandQueue;            // protected on D3DApp; re-exposed for manager.
+	void RebuildFrameResources();               // clears mFrameResources, rebuilds, sets mCurrFrameResource.
+	void DirtyAllRenderItems();
+	void PreInitObjectCBs();
+
+	// --- Accessors used by MCSceneModule() inheriotrs ---
 	ID3D12Device*              GetDevice()  const { return md3dDevice.Get(); }
 	ID3D12GraphicsCommandList* GetCmdList() const { return mCommandList.Get(); }
-	BarrierManager& GetBarrierManager() { return mBarrierManager; }
-	const BarrierManager& GetBarrierManager() const { return mBarrierManager; }
-	MCTexture* GetTexture(const std::string& name) const;
-	const std::unordered_map<int, std::string>& GetTextureIndexTracker() const { return mTexturesIndexStrTracker; }
+	FrameResource*				GetCurrentFrameResource() const { return  mCurrFrameResource; }
+	bool						IsCameraFrozen() const { return mFreezeCamera; }
+	const PerPassCB&			GetMainPassCB() const { return	mMainPassCB; }
+	const BoundingFrustum&		GetFrozenWorldFrustum() const { return mFrozenWorldFrustum; }
+	const XMFLOAT4X4&			GetFrozenViewProjT() const { return mFrozenViewProjT; }
+	BarrierManager&				GetBarrierManager() { return mBarrierManager; }
+	const BarrierManager&		GetBarrierManager() const { return mBarrierManager; }
+	int						    GetCurrFrameResourceIndex()  const { return mCurrFrameResourceIndex; }
+	ID3D12RootSignature*    GetGrassCullRootSignature()  const { return mGrassCullRootSignature.Get(); }
+	ID3D12PipelineState*    GetPSO(const std::string& name) const {
+		auto it = mPSOs.find(name);
+		return it == mPSOs.end() ? nullptr : it->second.Get();
+	}
 
 	// --- Special render item setters (called by concrete scenes during Load) ---
+	// these should eventually be removed.
 	void SetModelRitem(RenderItem* ri)          { mModelRitem = ri; }
 	void SetReflectedModelRitem(RenderItem* ri) { mReflectedModelRitem = ri; }
-	void SetShadowedModelRitem(RenderItem* ri)  { mShadowedModelRitem = ri; }
+	void SetShadowedModelRitem(RenderItem* ri)  { mShadowedModelRitem = ri; }	// nothing calls it currently
 	void SetTessellatedRitem(RenderItem* ri)    { mTessellatedRitem = ri; }
 
 	XMFLOAT4& GetFogColor() { return mFogColor; }
-	void SetGrassCullingScene(Scene_grass* s) { mGrassScene = s; }
 
 	Camera& GetMainCamera() { return *mMainCamera; }
 	std::vector<float> GetScreenSize() { return { mSceneViewWidth, mSceneViewHeight }; }
 	XMFLOAT2& GetSceneMousePos() { return mSceneMousePos; }
 
-
+	// --- MCScene load from json ---
+	// Returns a non-owning pointer to the loaded item; ownership lives in scene.allRitems
+	// after the AddRenderItem call inside.
+	RenderItem* LoadRenderItemsFromJson(const nlohmann::json& j, MCScene& scene);
 	
 protected:
 	virtual void CreateRtvAndDsvDescriptorHeaps()override;	// overridden to set dsvHeapDesc.NumDescriptors = 2 instead of 1.
@@ -104,7 +144,6 @@ private:
 	void UpdateDepthDebugCB(const GameTimer& gt);
 	void UpdateBlurCB(const GameTimer& gt);
 	void UpdateSobelCB(const GameTimer& gt);
-	void UpdateSobelState();
 
 	void BuildDescriptorHeaps();	// create descriptor heap for cbv
 	void BuildConstantBufferViews(); // ch7 - replaced BuildConstantBuffer with BuildConstantBufferViews
@@ -116,26 +155,33 @@ private:
 	// ch7 stuff - shapes
 	void BuildFrameResources();
 	void BuildComputeShaderConstantBufferResources(); // uses upload buffer, but aren't frame resources
-	void FixupMaterialDiffuseIndices(); // sets DiffuseSrvHeapIndex on all materials after heap is built
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::set<RenderItem*>& ritems, std::string pixEventName = "null");
 	void DrawInstanceRenderItems(ID3D12GraphicsCommandList* cmdList, const std::set<RenderItem*>& ritems, bool useGrass = false, std::string pixEventName = "null");
-	void DirtyAllRenderItems();
-	void PreInitObjectCBs();
 
 	// IMGUI
 	void IMGUI_INIT();
 	void IMGUI_UPDATE();
 	void IMGUI_RENDERDRAWDATA();
 	void IMGUI_UPDATE_DESCHEAP_VIEWER();
+	void IMGUI_OUTLINER(); // MVP version of `Hierarchy` panel of Unity (no parent-child relationship. just lists all render items in scene)
+	void IMGUI_INSPECTOR();
+	void IMGUI_MENUBAR();
+	void IMGUI_TEST();
+	RenderItem* CurrentSelectedItem() const;
 	LRESULT IMGUI_WNDMSGHANDLER(HWND& hwnd, UINT& msg, WPARAM& wParam, LPARAM& lParam);
 	void IMGUI_SHUTDOWN();
 
+	// editor (non-runtime)
+	// these are greedy bad designs, coded on demand. must be refactored completely.
+	void RefreshWindowTitle();
+	bool FileMenuSave();
+	bool FileMenuSaveAs();
+	void FileMenuOpenScene();
+	void FileMenuCreateScene();
+	void FileMenuCreateMaterial();
+
 	void ReadBackGpuTimer(float dt);
 	void TickProfiler(float dt);
-	void GrassCullDispatch();
-
-	// ch 9 stuff - texture
-	void LoadTextures();
 
 	// rendering to texture
 	void BuildSceneRenderTarget();
@@ -155,30 +201,35 @@ private:
 	BarrierManager mBarrierManager;
 
 	//! START- for rendering to Texture instead of directly to back buffer
-	MCTexture mSceneColor, mSceneDepth, mDepthDebugColor;
-	MCTexture mViewportColor, mViewportNoAlpha;
-	MCTexture mBlurred0, mBlurred1;
-	MCTexture mSobelOutput;
+	MCTextureResource mSceneColor, mSceneDepth, mDepthDebugColor;
+	MCTextureResource mViewportColor, mViewportNoAlpha;
+	MCTextureResource mBlurred0, mBlurred1;
+	MCTextureResource mSobelOutput;
 
 	DXGI_FORMAT mSceneFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	// Upload buffers for the post-process compute shaders (resources proper
-	// live on the MCTexture members above; descriptors on DescHeapManager).
+	// live on the MCTextureResource members above; descriptors on DescHeapManager).
 	// All three are re-uploaded on resize because they cache bindless offsets
-	// of post-process MCTextures, which shift when those textures are re-created.
-	std::unique_ptr<UploadBuffer<CSB_default>> mForceAlphaUploadBuffer;	// static-only, will break when toggled
+	// of post-process MCTextureResources, which shift when those textures are re-created.
+	std::unique_ptr<UploadBuffer<CSB_default>> mForceAlphaUploadBuffer;
 	std::unique_ptr<UploadBuffer<CSB_blur>> mBlurUploadBuffer;
-	
+	std::unique_ptr<UploadBuffer<CSB_default>> mSobelUploadBuffer;
 
 	D3D12_VIEWPORT mSceneViewport = {};
 	D3D12_RECT mSceneScissorRect = {};
 
-	UINT mNumImportedTextureSrvs = 0;
-
-	static constexpr int kCsuReservedHead = 2;        // slot 0 ImGui font, slot 1 ImGui scene
+	// Reserved leading range of mCbvSrvUavHeap exclusively for ImGui's SRV allocator
+	// (see MC_imgui.cpp file-static free list). DescHeapManager's tiers start at
+	// offset kCsuReservedHead, so these slots are off-limits to engine resources.
+	// Was 2 (legacy single-descriptor mode + 1 reserved). Bumped to 16 to give the
+	// dynamic font atlas slack during FontScaleMain rebuilds — the rebuild
+	// allocates a NEW atlas slot before freeing the old, so capacity must
+	// exceed the live texture count by at least 1.
+	static constexpr int kCsuReservedHead = 16;
 	static constexpr int kCsuTierDynamicCap = 0;      // raise when first dynamic use lands
-	static constexpr int kCsuTierStaticHeadroom = 64; // post-process SRVs/UAVs + future static allocs
-	int mCsuTierStaticCap = 0;                        // imported tex count + headroom, set in BuildDescriptorHeaps
+	static constexpr int kCsuTierStaticHeadroom = 64; // covers asset textures + post-process SRVs/UAVs + headroom
+	int mCsuTierStaticCap = 0;                        // = kCsuTierStaticHeadroom, set in BuildDescriptorHeaps
 
 	UINT mImGuiSceneSrvIndex = 1; // 0 font, 1 scene Texture, 2 depth texture, 3 depth debug texture
 	enum class ViewportResMode { Free, Ratio16x9, Ratio1x1, HD, FullHD, K4 };
@@ -193,9 +244,10 @@ private:
 	bool mSceneImageHovered = false;
 	XMFLOAT2 mSceneMousePos = { 0.0f, 0.0f };
 	bool mScene4xMsaaState = false;
-	bool mScene4xMsaaStateImGuiRequest = mScene4xMsaaState; // request by ImGui. Later update mScene4xMsaaState to this value just before OnSceneResize()
 	//! END- for rendering to Texture instead of directly to back buffer
 
+	CBFreeList mObjCBFreeList;
+	uint32_t mObjCBCapacity; // set at BuildFrameResources. caches maxObjCount
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 	FrameResource* mCurrFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
@@ -204,7 +256,6 @@ private:
 	ComPtr<ID3D12RootSignature> mComputeRootSignature;
 	ComPtr<ID3D12RootSignature> mGrassCullRootSignature;
 	ComPtr<ID3D12CommandSignature> mGrassCommandSignature;
-	Scene_grass* mGrassScene = nullptr;
 	ComPtr<ID3D12DescriptorHeap> mCbvSrvUavHeap = nullptr;		// unified descriptor heap. There should be no switching of descriptor heap within a draw pass
 	ComPtr<ID3D12DescriptorHeap> mCbvHeap = nullptr;			// descriptors (aka views) are accessed via Descriptor Heap
 	ComPtr<ID3D12DescriptorHeap> mSrvHeap = nullptr;			// for render target texture on IMGUI scene window
@@ -212,30 +263,27 @@ private:
 
 	UINT mTextureSrvCount = 0;									// number of texture Srvs
 
-	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
-	std::unordered_map<std::string, std::unique_ptr<MCTexture>> mTextures;
 
-	std::unordered_map<int, std::string> mTexturesIndexStrTracker;			// need a better way of keeping track of resources.
-	std::unordered_map<std::string, int> mTexturesStrIndexTracker;
-	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
-	std::unordered_map<int, std::string> mMaterialsIndexTracker;
+	MCMaterialManager mMaterialManager;
+	MCTextureManager mTextureManager;
+	MCMeshSourceManager mMeshSourceManager;
+	MCSceneManager mSceneManager;
+
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 
 	std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayout;
 
 	RenderItem* mModelRitem = nullptr;
 	RenderItem* mReflectedModelRitem = nullptr;
-	RenderItem* mShadowedModelRitem = nullptr;
+	RenderItem* mShadowedModelRitem = nullptr; // unused currently
 	RenderItem* mTessellatedRitem = nullptr;
 
-	// List of all the render items.
-	std::vector<std::unique_ptr<RenderItem>> mAllRitems;
-
-	// Render items divided by PSO.
-	std::set<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
+	// D8 Step 1d: render items live on MCSceneManager::GetActive()->allRitems / ->layers[i].
+	// The engine no longer mirrors them. Read sites cache `auto* scene = mSceneManager.GetActive();`.
 
 	PerPassCB mMainPassCB; // 0 for main, 1 for reflected
 	DebugDepthConstants mDebugDepthCB;
+	JsonMigrator mMigrator;
 	bool mIsWireframe = false;
 
 	std::vector<std::unique_ptr<Camera>> mAllCameras;
@@ -246,7 +294,7 @@ private:
 	int mNumCameraDirty = gNumFrameResources;
 	POINT mLastMousePos;
 
-	int total_objects = 0;	// set at init stage by BuildRenderItems()	 == mAllRitems.size()
+	int total_objects = 0;	// updated by MCSceneManager::Switch via SceneAccess::TotalObjects (== active scene's allRitems.size())
 	bool isOrtho = 0;
 	float mOrthoT = 0.0f;
 
@@ -267,7 +315,6 @@ private:
 		Depth,
 		Count
 	} mSobelType = SobelType::Gaussain;
-	int mSobelCBFramesDirty = gNumFrameResources;
 
 	struct FrameProfiler {
 		bool        recording = false;
@@ -298,11 +345,36 @@ private:
 
 	ComPtr<ID3D12RootSignature> mDebugLineRootSig;
 
-	// --- Scene management ---
-	std::unordered_map<std::string, std::unique_ptr<Scene>> mScenes;
-	Scene* mActiveScene = nullptr;
-	std::string mPendingScene;
 	bool reloadScene = false;
+	bool mSceneDirty = false;
+	std::filesystem::path mCurrentScenePath;
+	
+
+public:
+	// --- MCScene management proxy (D8 D-2) ---
+	// MCSceneManager calls sceneAccess() at scene-switch time. The struct's field set
+	// bounds the manager's mutation surface to engine-internal frame state (CB free list,
+	// frame-resource vector, total-objects counter); PSOs / heaps / signatures stay out
+	// of reach. After D8 Step 1d, render items live on the scene, so AllRitems/RitemLayers
+	// are no longer in the proxy. Phase-2 ticket: replace with typed accessors.
+	struct SceneAccess {
+		CBFreeList& ObjCBFreeList;
+		std::vector<std::unique_ptr<FrameResource>>& FrameResources;
+		int& TotalObjects;
+	};
+	SceneAccess sceneAccess() { return { mObjCBFreeList, mFrameResources, total_objects }; }
+	friend struct SceneAccess;
+
+	// ---- imgui W3 D10 -  Outliner state.
+	int mSelectedItemIndex = -1; // -1 = nothing selected. Index into mSceneManager.GetActive()->allRitems
+
+	// ---- imgui W4A D1 - Autosave-on-switch toggle.
+	// When true, MCEngine::Update saves the active scene to its registered path
+	// before consuming a pending switch. Default true to preserve the
+	// "edits flush to disk on combo-switch" UX you currently rely on.
+	bool mAutosaveOnSwitch = true;
+
+private:
 
 	// VSync
 	bool enableVsync = true;
@@ -313,7 +385,10 @@ private:
 	enum class LightType : int {Directional, Point, Spot, Count};
 
 	// --- ImGui UI set values
-	bool mShowDescHeapViewer = true;
+	bool mShowDescHeapViewer = false;
+	bool mShowTestsWindow = false;
 
-	// --- 
+	// --- _requestRoundTripTest stays on engine; ImGui button at MC_imgui.cpp:502
+	// sets the flag, MCEngine::Update routes the call through mSceneManager (D8 Step 2).
+	bool _requestRoundTripTest = false;
 };

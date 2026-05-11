@@ -1,4 +1,5 @@
 #include "MCEngine.h"
+#include "MCScene.h"
 struct LayerDebugInfo
 {
 	RenderLayer layer;
@@ -22,9 +23,11 @@ const LayerDebugInfo layers[] =
 };
 
 void MCEngine::PrintRenderItemInLayers() {
+	auto* scene = mSceneManager.GetActive();
+	if (!scene) return;
 	bool chng = false;
 	for (int i = 0; i < 6; ++i) {
-		size_t curr = mRitemLayer[(int)layers[i].layer].size();
+		size_t curr = scene->layers[(int)layers[i].layer].size();
 		if (counts[i] != curr) {
 			std::cout << layers[i].name << " : " << counts[i] << " >> "<<curr<< std::endl;
 			counts[i] = curr;
@@ -79,12 +82,13 @@ UINT MCEngine::BuildDebugLineGeometry()
 	// ---- Bounding boxes (yellow) ----
 	mDebugBBoxVertStart = vc;
 	if (mShowBoundingBoxes) {
-		for (auto& ri : mAllRitems) {
+		auto* scene = mSceneManager.GetActive();
+		if (!scene) return vc;
+		for (auto& ri : scene->allRitems) {
 			if (vc + 24 > kMaxDebugLineVerts) break;
 			// Skip instanced layers — per-instance transforms aren't in RenderItem::World
-			int layer = ri->Mat ? ri->Mat->renderLevel : -1;
-			if (layer == (int)RenderLayer::OpaqueInstanced ||
-				layer == (int)RenderLayer::GrassInstanced)
+			if (HasLayer(ri->Layers, RenderLayer::OpaqueInstanced) ||
+				HasLayer(ri->Layers, RenderLayer::GrassInstanced))
 				continue;
 			// Skip items with a degenerate bounds
 			const auto& ext = ri->Bounds.Extents;
@@ -123,4 +127,5 @@ UINT MCEngine::BuildDebugLineGeometry()
 
 	return vc;
 }
+
 

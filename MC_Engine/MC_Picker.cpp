@@ -1,5 +1,5 @@
 #include "MC_Picker.h"
-
+#include "MCScene.h"
 // naive vanilla approach of using CPU only
 // converts screen space position (x,y) to view space coordinate at z = near plane of camera
 void MC_Picker::ScreenSpaceToCamViewSpace(XMFLOAT2 s_xy) {
@@ -55,12 +55,13 @@ float MC_Picker::TestRayVertexHit(RenderItem& ri) {
 	return 0.0f;
 }
 
-RenderItem& MC_Picker::PickRenderItem(XMFLOAT2 xy, std::vector<std::unique_ptr<RenderItem>>& mAllRitems) {
+int MC_Picker::PickRenderItemOnScreen(XMFLOAT2 xy, MCScene& scene) {
 	ScreenSpaceToCamViewSpace(xy);
 	float minDist = m_camera.GetFarZ();
-	RenderItem selected_ri;
+	int selected_idx = -1;
 	int tested = 0;
-	for (auto& ri : mAllRitems) {
+	for (int i = 0; i < static_cast<int>(scene.allRitems.size()); ++i) {
+		auto& ri = scene.allRitems[i];
 		if (!ri->insideFrustrum)
 			continue;
 		tested++;
@@ -69,10 +70,16 @@ RenderItem& MC_Picker::PickRenderItem(XMFLOAT2 xy, std::vector<std::unique_ptr<R
 		if (ray_hitDist < m_camera.GetNearZ() || minDist < ray_hitDist)
 			continue;
 		minDist = ray_hitDist;
-		selected_ri = *ri;
+		selected_idx = i;
 	}
 	std::cout << "tested items in frustrum : " << tested << std::endl;
-	std::cout << "NAME:" << selected_ri.Name  << " | objCBindex : " << selected_ri.ObjCBIndex << std::endl;
+	if (selected_idx >= 0) {
+		const auto& hit = scene.allRitems[selected_idx];
+		std::cout << "NAME:" << hit->Name << " | allRitems index : " << selected_idx
+			<< " | objCBindex : " << hit->ObjCBIndex << std::endl;
+	} else {
+		std::cout << "no hit" << std::endl;
+	}
 	std::cout << "----------------------" << std::endl;
-	return selected_ri;
+	return selected_idx;
 }

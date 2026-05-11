@@ -1,37 +1,40 @@
 #pragma once
-#include "Scene.h"
-class Scene_grass : public Scene
+#include "MCScene.h"
+class Scene_grass : public MCScene
 {
 public:
 	Scene_grass() { name = "Grass"; }
 	void Load(MCEngine& engine) override;
 	void Activate(MCEngine& engine) override;
+	void RebindCachedPointers(MCEngine& engine) override;
 	void Deactivate(MCEngine& engine) override;
 	void Update(MCEngine& engine, float dt) override;
-	void Scene_IMGUI(MCEngine& engine) override;
+	void OnImGui(MCEngine& engine) override;
 	void ResetSceneResources() override;
+
 private:
 	void BuildGeometry(MCEngine& engine);
 	void BuildMaterials(MCEngine& engine);
 	void BuildRenderItems(MCEngine& engine);
 	void BuildInstanceCells();
+	void PopulateGrassInstances();  // called from BuildRenderItems and Activate
 
 	void BuildGpuCullingBuffers(MCEngine& engine);
 
 public:
-	float grassWidth = 0.4f;
-	float grassHeight = 1.0f;
-	int grassCountWidth = 500;
-	int grassCountDepth = 500;
-	float grassCoverageWidth = 500.0f;
-	float grassCoverageDepth = 500.0f;
-	float grassSharpness = 0.9f;
+	float grassWidth = 0.4f;			// serialize
+	float grassHeight = 1.0f;			// serialize
+	int grassCountWidth = 500;			// serialize
+	int grassCountDepth = 500;			// serialize
+	float grassCoverageWidth = 500.0f;	// serialize
+	float grassCoverageDepth = 500.0f;	// serialize
+	float grassSharpness = 0.9f;		// serialize
 
 	RenderItem* mGrassRitem = nullptr;
 	RenderItem* mPlaneRitem = nullptr;
 
-	Material* mPlaneMaterial = nullptr;
-	Material* mGrassMaterial = nullptr;
+	MCMaterial* mPlaneMaterial = nullptr;
+	MCMaterial* mGrassMaterial = nullptr;
 	bool equalColor = true;
 
 	int numCellsX = 5;
@@ -41,11 +44,11 @@ public:
 	bool useGpuCulling = false;
 
 
-	MCBuffer mGrassFullInstanceBuffer;   // SRV for cull CS
-	MCBuffer mGrassIndirectArgsBuffer;   // ExecuteIndirect source
-	MCBuffer mGrassVisibleBuffer;        // CS UAV write, VS SRV read
-	MCBuffer mGrassCounterBuffer;        // CS UAV write, CopyBufferRegion src
-	MCBuffer mGrassCounterResetBuffer;   // CopyBufferRegion src (permanent upload)
+	MCBufferResource mGrassFullInstanceBuffer;   // SRV for cull CS
+	MCBufferResource mGrassIndirectArgsBuffer;   // ExecuteIndirect source
+	MCBufferResource mGrassVisibleBuffer;        // CS UAV write, VS SRV read
+	MCBufferResource mGrassCounterBuffer;        // CS UAV write, CopyBufferRegion src
+	MCBufferResource mGrassCounterResetBuffer;   // CopyBufferRegion src (permanent upload)
 
 	/*
 	ComPtr<ID3D12Resource> mGrassFullInstanceBuffer;  // default heap, written once

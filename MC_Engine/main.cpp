@@ -1,5 +1,6 @@
 #include "MCEngine.h"
 #include "Resource.h"
+#include "TesterConsole.h"
 
 // For debugging via std::cout
 void CreateDebugConsole(HINSTANCE hInstance)
@@ -39,9 +40,16 @@ void CreateDebugConsole(HINSTANCE hInstance)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
 	PSTR cmdLine, int showCmd){
+	// Per-monitor v2 DPI awareness — must run BEFORE any window is created so the
+	// font atlas rasterizes at native pixel density and Windows stops bilinear-
+	// stretching the backbuffer. Available since Windows 10 1607; in user32.dll,
+	// no extra link required.
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
 	// Enable run-time memory check for debug builds.
 #if defined(DEBUG) | defined(_DEBUG)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+	StartTesterConsole();
 #endif
 	CreateDebugConsole(hInstance);
 

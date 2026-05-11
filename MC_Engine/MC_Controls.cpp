@@ -7,7 +7,11 @@ void MCEngine::OnMouseDown(WPARAM btnState, int x, int y)
 	if ((btnState & MK_LBUTTON) != 0) {
 		if (mSceneImageHovered) {
 			MC_Picker& picker = MC_Picker::GetPicker(*this);
-			picker.PickRenderItem(GetSceneMousePos(), mAllRitems);
+			if (auto* scene = mSceneManager.GetActive()) {
+				int picked = picker.PickRenderItemOnScreen(GetSceneMousePos(), *scene);
+				// -1 (miss) clears selection; any valid index drives outliner + inspector.
+				mSelectedItemIndex = picked;
+			}
 		}
 	}
 	mLastMousePos.x = x;

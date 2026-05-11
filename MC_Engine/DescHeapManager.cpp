@@ -113,11 +113,11 @@ void DescHeapManager::CommitToShaderVisible() {
 	}
 }
 
-void DescHeapManager::CreateCbv(MCBuffer& /*buffer*/, MC_VIEW_TIER /*tier*/) {
+void DescHeapManager::CreateCbv(MCBufferResource& /*buffer*/, MC_VIEW_TIER /*tier*/) {
 	// CBVs are bound directly via SetRootConstantBufferView — no descriptor heap slot needed.
 }
 
-void DescHeapManager::CreateSrv2d(MCTexture& mcResource, DXGI_FORMAT format, bool isMSAA, MC_VIEW_TIER tier) {
+void DescHeapManager::CreateSrv2d(MCTextureResource& mcResource, DXGI_FORMAT format, bool isMSAA, MC_VIEW_TIER tier) {
 	ID3D12Resource* resource = mcResource.mResource.Get();
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -147,7 +147,7 @@ void DescHeapManager::CreateSrv2d(MCTexture& mcResource, DXGI_FORMAT format, boo
 	mCSU.dirty[tierIdx] = true;
 }
 
-void DescHeapManager::CreateSrvCube(MCTexture& mcResource, DXGI_FORMAT format, bool isMSAA, MC_VIEW_TIER tier) {
+void DescHeapManager::CreateSrvCube(MCTextureResource& mcResource, DXGI_FORMAT format, bool isMSAA, MC_VIEW_TIER tier) {
 	ID3D12Resource* resource = mcResource.mResource.Get();
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -179,7 +179,7 @@ void DescHeapManager::CreateSrvCube(MCTexture& mcResource, DXGI_FORMAT format, b
 	mCSU.dirty[tierIdx] = true;
 }
 
-void DescHeapManager::CreateSrvBuffer(MCBuffer& mcResource, MC_VIEW_TIER tier) {
+void DescHeapManager::CreateSrvBuffer(MCBufferResource& mcResource, MC_VIEW_TIER tier) {
 	ID3D12Resource* resource = mcResource.mResource.Get();
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Format                       = DXGI_FORMAT_UNKNOWN; // structured buffer
@@ -210,7 +210,7 @@ void DescHeapManager::CreateSrvBuffer(MCBuffer& mcResource, MC_VIEW_TIER tier) {
 	mCSU.dirty[tierIdx] = true;
 }
 
-void DescHeapManager::CreateUav2d(MCTexture& mcResource, DXGI_FORMAT format, UINT mipSlice, MC_VIEW_TIER tier) {
+void DescHeapManager::CreateUav2d(MCTextureResource& mcResource, DXGI_FORMAT format, UINT mipSlice, MC_VIEW_TIER tier) {
 	ID3D12Resource* resource = mcResource.mResource.Get();
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.Format               = format;
@@ -237,7 +237,7 @@ void DescHeapManager::CreateUav2d(MCTexture& mcResource, DXGI_FORMAT format, UIN
 	mCSU.dirty[tierIdx] = true;
 }
 
-void DescHeapManager::CreateUavBuffer(MCBuffer& mcResource, ID3D12Resource* counterResource, UINT64 counterOffset, MC_VIEW_TIER tier) {
+void DescHeapManager::CreateUavBuffer(MCBufferResource& mcResource, ID3D12Resource* counterResource, UINT64 counterOffset, MC_VIEW_TIER tier) {
 	ID3D12Resource* resource = mcResource.mResource.Get();
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.Format                       = DXGI_FORMAT_UNKNOWN; // structured buffer
@@ -269,7 +269,7 @@ void DescHeapManager::CreateUavBuffer(MCBuffer& mcResource, ID3D12Resource* coun
 }
 
 
-void DescHeapManager::CreateRtv2d(MCTexture& mcResource, DXGI_FORMAT format, bool isMSAA, UINT mipSlice) {
+void DescHeapManager::CreateRtv2d(MCTextureResource& mcResource, DXGI_FORMAT format, bool isMSAA, UINT mipSlice) {
 	ID3D12Resource* resource = mcResource.mResource.Get();
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
 	rtvDesc.ViewDimension         = isMSAA ? D3D12_RTV_DIMENSION_TEXTURE2DMS : D3D12_RTV_DIMENSION_TEXTURE2D;
@@ -288,7 +288,7 @@ void DescHeapManager::CreateRtv2d(MCTexture& mcResource, DXGI_FORMAT format, boo
 	mRtv.slotInfo[offset] = { mcResource.Name, "RTV", format };
 }
 
-void DescHeapManager::CreateDsv(MCTexture& mcResource, D3D12_DSV_FLAGS flags, DXGI_FORMAT format, bool isMSAA, UINT mipSlice) {
+void DescHeapManager::CreateDsv(MCTextureResource& mcResource, D3D12_DSV_FLAGS flags, DXGI_FORMAT format, bool isMSAA, UINT mipSlice) {
 	ID3D12Resource* resource = mcResource.mResource.Get();
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
 	dsvDesc.Flags               = flags;
@@ -340,7 +340,7 @@ void DescHeapManager::RemoveFromSet(int idx, DHInfo& map)
 	map.slotInfo[idx] = {};
 }
 
-void DescHeapManager::QueueRemoval_Texture(MCTexture& mcResource) {
+void DescHeapManager::QueueRemoval_Texture(MCTextureResource& mcResource) {
 	for (auto& dh : mcResource.SRVs)
 		QueueRemovalFromSet_CbvSrvUav(dh);
 	for (auto& dh : mcResource.UAVs)
@@ -351,7 +351,7 @@ void DescHeapManager::QueueRemoval_Texture(MCTexture& mcResource) {
 		QueueRemovalFromSet_Dsv(dh);
 }
 
-void DescHeapManager::QueueRemoval_Buffer(MCBuffer& mcResource) {
+void DescHeapManager::QueueRemoval_Buffer(MCBufferResource& mcResource) {
 	for (auto& dh : mcResource.CBVs)
 		QueueRemovalFromSet_CbvSrvUav(dh);
 	for (auto& dh : mcResource.SRVs)

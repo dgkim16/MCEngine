@@ -1,0 +1,140 @@
+{
+  "materialHandles": [
+    "761222803896839058",
+    "8561768638232733134"
+  ],
+  "meshes": [
+    {
+      "kind": "Procedural_Grid",
+      "name": "grass_grid_mesh",
+      "params": {
+        "d": 500.0,
+        "m": 2,
+        "n": 2,
+        "w": 500.0
+      }
+    },
+    {
+      "kind": "Procedural_GrassPatch",
+      "name": "grass_blade_mesh",
+      "params": {
+        "height": 1.0,
+        "sharpness": 0.7239999771118164,
+        "width": 0.4729999899864197
+      }
+    }
+  ],
+  "modules": [
+    {
+      "params": {
+        "equalColor": true,
+        "grassCountDepth": 286,
+        "grassCountWidth": 280,
+        "grassCoverageDepth": 114.61199951171875,
+        "grassCoverageWidth": 110.69400024414063,
+        "grassRitemName": "quad",
+        "numCellsX": 15,
+        "numCellsZ": 15,
+        "planeRitemName": "grid",
+        "useGpuCulling": true
+      },
+      "type": "MCGrassCulling"
+    }
+  ],
+  "renderItems": [
+    {
+      "Name": "grid",
+      "Position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 5.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 5.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "8561768638232733134",
+      "meshHandle": "10956269406963085176",
+      "useCellCulling": false
+    },
+    {
+      "Name": "quad",
+      "Position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "PrimitiveType": 36,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "GrassInstanced"
+      ],
+      "materialHandle": "761222803896839058",
+      "meshHandle": "2897108067314293996",
+      "useCellCulling": true
+    }
+  ],
+  "sceneName": "Grass",
+  "specialPointers": {},
+  "textureHandles": [],
+  "version": 1
+}

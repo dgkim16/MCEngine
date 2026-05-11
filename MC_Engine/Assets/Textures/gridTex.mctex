@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/tile.dds",
+  "displayName": "gridTex",
+  "handle": "1255651860521229785",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

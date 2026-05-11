@@ -1,40 +1,27 @@
-﻿// Ch7_Shapes.cpp
+// Ch7_Shapes.cpp
 #include "MCEngine.h"
 #include "ShaderLib.h"
-#include "Scene.h"
-#include "Scene_Ch7.h"
-#include "Scene_Empty.h"
-#include "Scene_grass.h"
+#include "MCScene.h"
 #include "UploadHelper.h"
 #include "DescHeapManager.h"	// singleton - thus not saved as member variable inside MCEngine.h
 #include <DirectXColors.h>
 #include <WindowsX.h>
 #include <dxgidebug.h>
 #include <pix3.h>
-
-#define DHM DescHeapManager
+#include "MCAssetIdentity.h"
+#include "AuthorScenes.h"
 
 using namespace DirectX;
 
 extern const int gNumFrameResources;  // in d3dUtil.h
 
-// texture mappings are here. Material to texture mapping is in Scene.h (differ by scenes)
-static const std::map<std::string, std::wstring> texturesToLoad = {
-	{"defaultTex",       L"Assets/Textures/white1x1.dds"},
-	{"woodCrateTex",  L"Assets/Textures/WoodCrate01.dds"},
-	{"modelTex",      L"Assets/Textures/다람디.dds"},
-	{"gridTex",       L"Assets/Textures/tile.dds"},
-	{"waterTex",      L"Assets/Textures/water1.dds"},
-	{"grassTex",      L"Assets/Textures/grass.dds"},
-	{"bricksTex",     L"Assets/Textures/bricks3.dds"},
-	{"wirefenceTex",  L"Assets/Textures/WireFence.dds"},
-	{"iceTex",        L"Assets/Textures/ice.dds"},
-	{"treeArrTex",    L"Assets/Textures/treeArray2.dds"},
-	{"teapot_normal", L"Assets/Textures/teapot_normal.dds"}
-};
+// Texture metadata now lives in Assets/Textures/*.mctex; loaded by
+// mTextureManager.LoadDirectory in Initialize.
 
 MCEngine::MCEngine(HINSTANCE hInstance)
-	: D3DApp(hInstance)
+	: D3DApp(hInstance), 
+	mMaterialManager(*this), mTextureManager(*this), 
+	mMeshSourceManager(*this), mSceneManager(*this), mMigrator()
 {
 	mMainWndCaption = L"MC Engine";
 	BuildCamera();
@@ -45,8 +32,8 @@ MCEngine::~MCEngine()
 	OutputDebugString(L"MC Engine DESTRUCTOR Start\n");
 	if (md3dDevice != nullptr)
 		FlushCommandQueue();
-	if (mActiveScene)
-		mActiveScene->Deactivate(*this);
+	if (auto* active = mSceneManager.GetActive())
+		active->Deactivate(*this);
 	IMGUI_SHUTDOWN();
 
 	for (auto& rs : mRootSignatures)
@@ -59,17 +46,10 @@ MCEngine::~MCEngine()
 	// DescHeapManager singleton owns a CPU-only staging descriptor heap for the Static tier.
 	// Its instance lives in a static local inside Singleton::Init and is destroyed at program
 	// exit — AFTER ReportLiveObjects below. Release the heaps now so they don't show up as leaks.
-	DHM::Get().Shutdown();
+	DescHeapManager::Get().Shutdown();
 
-	for (auto& tex : mTextures)
-		tex.second->mResource.Reset();
 	for (auto& pso : mPSOs)
 		pso.second.Reset();
-	for (auto& geo : mGeometries) {
-		auto& mg = geo.second;
-		mg->DisposeUploaders();
-		mg->DisposeResources();
-	} 
 	mRtvHeap.Reset();
 	mDsvHeap.Reset();
 	mCbvSrvUavHeap.Reset();
@@ -84,6 +64,7 @@ MCEngine::~MCEngine()
 	mBlurred1.mResource.Reset();
 	mForceAlphaUploadBuffer.reset();
 	mBlurUploadBuffer.reset();
+	mSobelUploadBuffer.reset();
 	for (int i = 0; i < (int)mDebugLineVB.size(); ++i) {
 		if (mDebugLineVBMapped[i]) {
 			mDebugLineVB[i]->Unmap(0, nullptr);
@@ -97,19 +78,24 @@ MCEngine::~MCEngine()
 	mDirectCmdListAlloc.Reset();
 	mFrameResources.clear();
 
-	// Release GPU resources stored inside inactive scenes.
-	// On scene switch, the outgoing scene's MeshGeometry objects (vertex/index buffers)
-	// are moved back into mScenes[x]->geometries. mScenes is a member destroyed AFTER
-	// the destructor body (i.e. after ReportLiveObjects), so we must dispose them here.
-	for (auto& [name, scene] : mScenes) {
-		for (auto& [geoName, geo] : scene->geometries) {
-			geo->DisposeUploaders();
-			geo->DisposeResources();
-		}
-		scene->geometries.clear();
+	// Release manager-owned GPU resources before the device is destroyed.
+	// Both managers hold ID3D12Resource ComPtrs (texture default heaps, geometry
+	// VB/IB + upload heaps). Without explicit Clear() they destruct implicitly
+	// AFTER this destructor body returns — i.e. after ReportLiveObjects below
+	// has already counted their resources as leaked device refs.
+	mMeshSourceManager.Clear();
+	mTextureManager.Clear();
+	for (auto& [name, scene] : mSceneManager.All()) {
 		scene->ResetSceneResources();
+		// Null the back-pointer so ~MCScene (firing later, during member teardown)
+		// does not call sceneAccess() on a dying engine. The ObjCBIndex slots
+		// leaked here are process-exit waste, not a runtime concern.
+		scene->mEngine = nullptr;
 	}
-	mScenes.clear();
+	mSceneManager.ClearActive();
+	// (mSceneManager owns its mScenes map; it's destroyed when MCEngine is destroyed.
+	// We don't need to clear it manually here, but ResetSceneResources runs first to
+	// release MCScene-owned GPU resources while the device is still alive.)
 
 	for (auto& bbuf : mSwapChainBuffer)
 		bbuf.Reset();
@@ -121,11 +107,17 @@ MCEngine::~MCEngine()
 
 	OutputDebugString(L"======= START of LEAKED ID3D12Device dependent objects:\n");
 	ComPtr<IDXGIDebug1> dxgiDebug;
-	ThrowIfFailed(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgiDebug)));
-	dxgiDebug->ReportLiveObjects(
-		DXGI_DEBUG_ALL,
-		static_cast<DXGI_DEBUG_RLO_FLAGS>(
-			DXGI_DEBUG_RLO_DETAIL | DXGI_DEBUG_RLO_IGNORE_INTERNAL));
+	// use `if` instead of ThrowIfFailed
+	// destructors are implicitly noexcept(true). Do not throw.
+	// deeper rule : throwing from a destructor during stack unwinding
+	//               calls std::terminate even if the dtor were marked noexcept(false).
+	//               Destructors should not throw, period.
+	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgiDebug)))) {
+		dxgiDebug->ReportLiveObjects(
+			DXGI_DEBUG_ALL,
+			static_cast<DXGI_DEBUG_RLO_FLAGS>(
+				DXGI_DEBUG_RLO_DETAIL | DXGI_DEBUG_RLO_IGNORE_INTERNAL));
+	}
 	OutputDebugString(L"======= END of LEAKED ID3D12Device dependent objects\n");
 	OutputDebugString(L"MC Engine DESTRUCTOR ENDING\n");
 }
@@ -136,54 +128,81 @@ bool MCEngine::Initialize()
 	if (!D3DApp::Initialize())
 		return false;
 	std::cout << "D3DAPP init Success\n"; OutputDebugString(L"D3DAPP init Success\n");
+
+#ifdef MC_AUTHOR_SCENES_ONCE
+	// Step 8A4 one-shot: read v1-shape Assets/scenes/scene_*.json files,
+	// transform each into the v2 eight-key shape (drop-merging), and write
+	// them back. Process exits immediately after — re-run without the
+	// -DMC_AUTHOR_SCENES_ONCE flag for normal boot.
+	AuthorScenes::EmitAll();
+	std::exit(0);
+#endif
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 
 	mBarrierManager;
 
-	LoadTextures();                  std::cout << "LoadTextures() success\n" << std::endl; OutputDebugString(L"LoadTextures() success\n");
+	// Material manager populated before scene::BuildRenderItems (which calls
+	// engine.Materials().Get(handle)). Materials don't touch the descriptor
+	// heap during load — just JSON parsing + CB-index assignment.
+	// Texture LoadDirectory is deferred to after BuildDescriptorHeaps because
+	// MCTextureManager::LoadFromFile calls DescHeapManager::Get().CreateSrv2d,
+	// which requires DescHeapManager::Init.
+	// MatCBFreeList needs non-zero capacity before LoadDirectory's Allocate;
+	// 256 is a generous Phase-1 ceiling.
+	mMaterialManager.MatCBFreeList().SetCapacity(256);
+	mMaterialManager.LoadDirectory("Assets/materials");
+
 	BuildRootSignature();            std::cout << "BuildRootSignature() success\n" << std::endl; OutputDebugString(L"BuildRootSignature() success\n");
 	BuildShadersAndInputLayout();    std::cout << "BuildShadersAndInputLayout() success\n" << std::endl; OutputDebugString(L"BuildShadersAndInputLayout() success\n");
 
 	RegisterLights();
-	// Register all scenes (geometry upload uses the already-open command list)
-	RegisterScene(std::make_unique<Scene_Ch7>());
-	RegisterScene(std::make_unique<Scene_Empty>());
-	RegisterScene(std::make_unique<Scene_grass>());
-	// Load the initial scene inline (command list stays open for subsequent work)
-	{
-		mActiveScene = mScenes["Ch7"].get();
-		mActiveScene->Load(*this);
-		mActiveScene->loaded = true;
-		mGeometries          = std::move(mActiveScene->geometries);
-		mMaterials           = std::move(mActiveScene->materials);
-		mMaterialsIndexTracker = std::move(mActiveScene->materialIndexTracker);
-		mAllRitems           = std::move(mActiveScene->allRitems);
-		for (int i = 0; i < (int)RenderLayer::Count; i++)
-			mRitemLayer[i] = std::move(mActiveScene->layers[i]);
-		for (int i = 0; i < (int)mAllRitems.size(); i++)
-			mAllRitems[i]->ObjCBIndex = i;
-		int mi = 0;
-		for (auto& [k, v] : mMaterials) v->MatCBIndex = mi++;
-		// Sync instance MaterialIndex after MatCBIndex reassignment (unordered_map order != build order)
-		/*
-		for (int layer : { (int)RenderLayer::OpaqueInstanced, (int)RenderLayer::GrassInstanced })
-			for (auto* ri : mRitemLayer[layer])
-				for (auto& inst : ri->Instances)
-					inst.MaterialIndex = ri->Mat->MatCBIndex;
-					*/
-		total_objects = (int)mAllRitems.size();
-		std::cout << "Scene 'Ch7' loaded: " << total_objects << " render items\n";
-		OutputDebugString(L"Scene 'Ch7' loaded\n");
-	}
+
+	// mObjCBFreeList must be sized BEFORE LoadAll: under v2 each LoadRenderItemsFromJson
+	// allocates an ObjCBIndex slot, and Allocate throws when capacity is 0. v1's
+	// Scene_X::BuildRenderItems used a local objCBIndex++ counter, so the free list
+	// only needed sizing later (after BuildFrameResources at line ~168). 8A5 pulled
+	// the Allocate forward into LoadAll, hence the early sizing here. The downstream
+	// BuildFrameResources still recomputes mObjCBCapacity from the active scene's
+	// item count + 64 headroom, and the SetCapacity below adjusts to match — that
+	// adjustment is safe as long as the headroom keeps it ≥ free-list high-water.
+	constexpr std::uint32_t kBootObjCBCapacity = 256;
+	mObjCBFreeList.SetCapacity(kBootObjCBCapacity);
+
+	// Register all scenes via the manager (geometry upload uses the already-open command list)
+	mSceneManager.LoadAssetRedirects("assets/asset_redirects.json");
+	mSceneManager.LoadAll({
+		{"Ch7",      "assets/scenes/scene_ch7.json"},
+		{"Empty",    "assets/scenes/scene_empty.json"},
+		{"Grass",    "assets/scenes/scene_grass.json"},
+		{"SoloVoid", "assets/scenes/scene_solo_void.json"},   // D9 Step 6a — empty-scene edge case
+		{"SoloBox",  "assets/scenes/scene_solo_box.json"},    // D9 Step 6b — single-render-item edge case
+		});
+	mSceneManager.ValidateRedirects();   // D9 Step 2b — dangling-target check; runs after LoadAll so procedural meshes are present.
+	mSceneManager.Switch("Ch7");
 
 	BuildFrameResources();           std::cout << "BuildFrameResources() success\n" << std::endl; OutputDebugString(L"BuildFrameResources() success\n");
-	
+	mObjCBFreeList.SetCapacity(mObjCBCapacity);
+	// v1 had: assert(HighWater == GetActive()->allRitems.size()) — one scene loaded at a time.
+	// v2 LoadAll loads every scene upfront, so HighWater spans all scenes' items, not just the
+	// active one. Keep the weaker invariant: every active-scene item must have a slot, and
+	// the per-frame ObjCB array (sized at mObjCBCapacity = active+headroom) must cover the
+	// global high-water — otherwise a render-item ObjCBIndex would index past the end.
+	assert(mObjCBFreeList.HighWater() >= mSceneManager.GetActive()->allRitems.size()
+	       && "free-list high-water below active scene's item count");
+	assert(mObjCBCapacity >= mObjCBFreeList.HighWater()
+	       && "per-frame ObjCB array smaller than free-list high-water; bump kObjCBHeadroom");
 	BuildDescriptorHeaps();          std::cout << "Descriptor Heaps build success\n" << std::endl; OutputDebugString(L"Descriptor Heaps build success\n");
-	FixupMaterialDiffuseIndices();
+
+	// Step 12b (deferred half): texture LoadDirectory must run after
+	// BuildDescriptorHeaps because MCTextureManager::LoadFromFile calls
+	// DescHeapManager::Get().CreateSrv2d, which requires DescHeapManager::Init
+	// to have been called inside BuildDescriptorHeaps.
+	mTextureManager.LoadDirectory("Assets/Textures");
+
 	// BuildConstantBufferViews();      std::cout << "CBVs build success\n" << std::endl; OutputDebugString(L"CBVs build success\n");
 	BuildPSOs();                     std::cout << "PSO build success\n" << std::endl; OutputDebugString(L"PSO build success\n");
 	BuildDebugLineResources();       std::cout << "Debug line resources built\n";
-	// Scene render targets must exist before compute-CB init (reads their bindless offsets).
+	// MCScene render targets must exist before compute-CB init (reads their bindless offsets).
 	BuildSceneRenderTarget();
 	BuildSceneRenderTargetDescriptors();
 	BuildComputeShaderConstantBufferResources();
@@ -191,35 +210,93 @@ bool MCEngine::Initialize()
 	ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 	FlushCommandQueue();
-
-	mActiveScene->Activate(*this);
+	mSceneManager.GetActive()->Activate(*this);
+	mSceneManager.GetActive()->RebindCachedPointers(*this);   // D-3: caller orders both.
 	PreInitObjectCBs();
 
 	OutputDebugString(L"MCEngine-Initialize() - IMGUI init Start\n");
 	// IMGUI_BuildImGuiDescriptorHeap();
 	IMGUI_INIT();
 	OutputDebugString(L"MCEngine-Initialize() - IMGUI init Done\n");
+
+	// Sync mCurrentScenePath to whatever LoadAll registered for the active
+	// scene. Without this the title bar shows "(unsaved)" until the user opens
+	// or saves something, even though Ch7 was loaded from a real file on disk.
+	if (auto* active = mSceneManager.GetActive())
+		mCurrentScenePath = mSceneManager.GetScenePath(active->name);
+	RefreshWindowTitle();
+
 	return true;
 }
 
+// this should not be called when in runtime (phase 3, separating runtime and editor)
+void MCEngine::RefreshWindowTitle() {
+	std::wstring title = mMainWndCaption;
+	title += L" (fps:" + mFpsStr + L" mspf: " + mMspfStr + L") ";
+	title += mCurrentScenePath.empty() ? L"(unsaved)" : mCurrentScenePath.filename().wstring();
+	
+	if (mSceneDirty) title += L"*";
+	SetWindowText(mhMainWnd, title.c_str());
+}
 
+// D9 Step 5a — open the cmdlist, run Reload (which calls module OnLoad for any
+// re-instantiated module — GPU work for grass), close + execute + flush so
+// the next Draw can Reset cmdlist as usual. cmdlist is closed at ImGui-handler
+// time (IMGUI_UPDATE runs from Update, before Draw resets the list).
+void MCEngine::ReloadActiveSceneNow() {
+	FlushCommandQueue();
+	ThrowIfFailed(mDirectCmdListAlloc->Reset());
+	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
+
+	std::string err;
+	try { mSceneManager.Reload(); }
+	catch (const std::exception& e) { err = e.what(); }
+
+	// Always close + execute, even on Reload throw. Leaves cmdlist in the
+	// closed state Draw expects to Reset against; partial work submitted to
+	// GPU is preferable to leaving the cmdlist stuck open.
+	ThrowIfFailed(mCommandList->Close());
+	ID3D12CommandList* lists[] = { mCommandList.Get() };
+	mCommandQueue->ExecuteCommandLists(_countof(lists), lists);
+	FlushCommandQueue();
+
+	if (!err.empty()) throw std::runtime_error("ReloadActiveSceneNow: " + err);
+}
 
 void MCEngine::Update(GameTimer& gt)
 {
+	RefreshWindowTitle();
+	if (_requestRoundTripTest) {
+		_requestRoundTripTest = false;
+		mSceneManager.TestRoundTripActiveScene();
+	}
+
 	if (reloadScene) {
 		reloadScene = false;
-		if (mActiveScene) {
-			std::string name = mActiveScene->name;
-			mActiveScene->loaded = false;
-			mActiveScene = nullptr;
-			SwitchScene(name);
+		if (mSceneManager.GetActive()) {
+			// D9 Step 5a — RequestReload's deferred path. Routes through
+			// ReloadActiveSceneNow so the cmdlist is bracketed properly for
+			// module OnLoad GPU work (e.g. grass instance buffer upload).
+			try { ReloadActiveSceneNow(); OutputDebugStringA("[reload] active scene reloaded (deferred)\n"); }
+			catch (const std::exception& e) {
+				OutputDebugStringA(("[reload] FAIL (deferred): " + std::string(e.what()) + "\n").c_str());
+			}
 		}
 	}
 
-	if (!mPendingScene.empty()) {
-		SwitchScene(mPendingScene);
-		mPendingScene.clear();
+	// W4A D1 — autosave-on-switch: when toggled on, flush in-memory edits to the
+	// active scene's JSON before consuming the pending switch. Gated by the
+	// "Autosave on switch" checkbox in the MCScene Inspector.
+	if (mSceneManager.HasPendingSwitch() && mAutosaveOnSwitch && mSceneManager.GetActive()) {
+		try {
+			mSceneManager.SaveActiveToRegisteredPath();
+			OutputDebugStringA("[autosave-on-switch] saved active scene\n");
+		}
+		catch (const std::exception& e) {
+			OutputDebugStringA(("[autosave-on-switch] FAIL: " + std::string(e.what()) + "\n").c_str());
+		}
 	}
+	mSceneManager.ConsumePendingSwitch();
 	float dt = gt.DeltaTime();
 	OnKeyboardInput(gt);
 	UpdateCamera(gt);
@@ -230,7 +307,7 @@ void MCEngine::Update(GameTimer& gt)
 
 	// Advance deferred-free counters so retired descriptors re-enter the free list
 	// after NumFrameResources frames.
-	DHM::Get().Update();
+	DescHeapManager::Get().Update();
 
 	// Has the GPU finished processing the commands of the current frame resource?
 	// If not, wait until the GPU has completed commands up to this fence point.
@@ -242,14 +319,6 @@ void MCEngine::Update(GameTimer& gt)
 		CloseHandle(eventHandle);
 	}
 	ReadBackGpuTimer(dt);
-	
-	if (mSceneSizeDirty) {
-		FlushCommandQueue();
-		mScene4xMsaaState = mScene4xMsaaStateImGuiRequest;
-		OnSceneResize();
-		mSceneSizeDirty = false;
-	}
-
 	IMGUI_UPDATE();
 	TickProfiler(dt);
 	const float kTransitionSpeed = 4.0f; // units per second
@@ -261,6 +330,12 @@ void MCEngine::Update(GameTimer& gt)
 	UpdateInstanceData(gt);
 	UpdateMainPassCB(gt);
 	UpdateMaterialCBs(gt);
+	
+	if (mSceneSizeDirty) {
+		FlushCommandQueue();
+		OnSceneResize();
+		mSceneSizeDirty = false;
+	}
 
 	UpdateDepthDebugCB(gt);
 	UpdateBlurCB(gt);
@@ -296,12 +371,14 @@ void MCEngine::UpdateObjectCBs(const GameTimer& gt) {
 	const DirectX::BoundingFrustum& cullFrustum =
 		mFreezeCamera ? mFrozenWorldFrustum : liveFrustumWorld;
 
-	for (auto& e : mAllRitems) {
+	auto* scene = mSceneManager.GetActive();
+	for (auto& e : scene->allRitems) {
+		if (e->NumFramesDirty > 0) {
+			XMStoreFloat4x4(&e->World,
+				MathHelper::ComposeWorldMatrix(e->Position, e->Rotation, e->Scale));
+		}
 		// Frustum check: always runs every frame — it's a visibility decision, not a resource one
 		// BUT if the camera wasn't dirty AND the object wasn't dirty, there is no need to check bounds
-		if (e->Mat->renderLevel == (int)RenderLayer::OpaqueInstanced || e->Mat->renderLevel == (int)RenderLayer::GrassInstanced) {
-			// continue;
-		}
 		if (e->checkBounds && (mFrustrumDirty || e->NumFramesDirty > 0)) {
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
 			// Transform local AABB to world space so the Contains test handles non-uniform scale
@@ -325,6 +402,8 @@ void MCEngine::UpdateObjectCBs(const GameTimer& gt) {
 }
 
 void MCEngine::UpdateInstanceData(const GameTimer& gt) {
+	// if (mRitemLayer[(int)RenderLayer::OpaqueInstanced].empty())
+	//		return;
 	auto _instStart = std::chrono::high_resolution_clock::now();
 	int bbInstCount = 0;
 	int globalOffset = 0;
@@ -339,7 +418,8 @@ void MCEngine::UpdateInstanceData(const GameTimer& gt) {
 	const DirectX::BoundingFrustum& cullFrustum =
 		mFreezeCamera ? mFrozenWorldFrustum : liveFrustumWorld;
 
-	for (auto& e : mRitemLayer[(int)RenderLayer::OpaqueInstanced]) {
+	auto* scene = mSceneManager.GetActive();
+	for (auto& e : scene->layers[(int)RenderLayer::OpaqueInstanced]) {
 		int visibleCount = 0;
 		e->InstanceBufferStartIndex = globalOffset;
 		const auto& instanceData = e->Instances;
@@ -392,10 +472,11 @@ void MCEngine::UpdateInstanceData(const GameTimer& gt) {
 	
 	//! CPU Culling Path
 	auto grassInstBuf = mCurrFrameResource->GrassInstanceCB.get();
-	if (!(mGrassScene && mGrassScene->useGpuCulling)) {
+	auto* gc = Scenes().GetActive()->GetModule<MCGrassCullingModule>();
+	if (!(gc && gc->useGpuCulling)) {
 		int grassOffset = 0;
 		
-		for (auto& e : mRitemLayer[(int)RenderLayer::GrassInstanced]) {
+		for (auto& e : scene->layers[(int)RenderLayer::GrassInstanced]) {
 			int visibleCount = 0;
 			e->GrassInstanceBufferStartIndex = grassOffset;
 			const auto& instanceData = e->GrassInstances;
@@ -457,7 +538,7 @@ void MCEngine::UpdateInstanceData(const GameTimer& gt) {
 		}
 	}
 	auto _instEnd = std::chrono::high_resolution_clock::now();
-	mInstancingCullingTime = std::chrono::duration<double, std::milli>(_instEnd - _instStart).count();
+	mInstancingCullingTime = static_cast<float>(std::chrono::duration<double, std::milli>(_instEnd - _instStart).count());
 }
 
 void MCEngine::UpdateMainPassCB(const GameTimer& gt) {
@@ -509,8 +590,8 @@ void MCEngine::UpdateMainPassCB(const GameTimer& gt) {
 
 void MCEngine::UpdateMaterialCBs(const GameTimer& gt) {
 	auto currMatCB = mCurrFrameResource->MaterialCB.get();
-	for (auto& e : mMaterials) {
-		Material* mat = e.second.get();
+	for (auto& [h, v] : mMaterialManager.All()) {
+		MCMaterial* mat = v.get();
 		if (mat->NumFramesDirty > 0) {
 			XMMATRIX matTransform = XMLoadFloat4x4(&mat->MatTransform);
 			MaterialConstants matConstants;
@@ -518,7 +599,9 @@ void MCEngine::UpdateMaterialCBs(const GameTimer& gt) {
 			matConstants.FresnelR0 = mat->FresnelR0;
 			matConstants.Roughness = mat->Roughness;
 			matConstants.MatTransform = mat->MatTransform;
-			matConstants.srvIndex = mat->DiffuseSrvHeapIndex;
+			auto* tex = mTextureManager.Get(mat->textureHandle);
+			assert(tex && tex->resource && "Material's textureHandle doesn't resolve to a loaded MCTexture");
+			matConstants.srvIndex = (tex && tex->resource) ? tex->resource->SRVs[0].offset : 0;
 			XMStoreFloat4x4(&matConstants.MatTransform, XMMatrixTranspose(matTransform));
 			currMatCB->CopyData(mat->MatCBIndex, matConstants);
 			// Next FrameResource need to be updated too.
@@ -556,7 +639,6 @@ void MCEngine::UpdateBlurCB(const GameTimer& gt) {
 }
 
 void MCEngine::UpdateSobelCB(const GameTimer& gt) {
-	if (mSobelCBFramesDirty <= 0) return;
 	CSB_default csbs;
 	// INputIndex, OutputIndex, Widht, Height	
 	// corresponds to...
@@ -574,39 +656,22 @@ void MCEngine::UpdateSobelCB(const GameTimer& gt) {
 			break;
 	}
 	if (blurValues.enabled)
-		csbs.Width = (INT)mBlurred0.SRVs[0].offset;	// width = gSceneIndex
+		csbs.Width = (INT)mBlurred0.SRVs[0].offset;
 	else
 		csbs.Width = (INT)mViewportNoAlpha.SRVs[0].offset; // viewport with no alpha srv
 	csbs.OutputIndex = (INT)mSobelOutput.UAVs[0].offset;
 	
-	mCurrFrameResource->SobelCB.get()->CopyData(0, csbs);
-	--mSobelCBFramesDirty;
-}
-
-void MCEngine::UpdateSobelState() {
-	switch (mSobelType) {
-	case SobelType::Default:
-		mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		break;
-	case SobelType::Depth:
-		mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		break;
-	case SobelType::Gaussain:
-	default:
-		mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		break;
-	}
-	if (blurValues.enabled) // sobel without blur, but blur itself is enabled
-		mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	else
-		mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	mSobelUploadBuffer.get()->CopyData(0, csbs);
+	mSobelUploadBuffer.get()->Resource()->SetName(L"mSobelUploadBuffer");
 }
 
 void MCEngine::BuildDescriptorHeaps()
 {
-	mNumImportedTextureSrvs = (UINT)mTextures.size();
-	mCsuTierStaticCap = mNumImportedTextureSrvs + kCsuTierStaticHeadroom;
+	// Static-tier cap covers all SRV/UAV slots that don't churn per frame:
+	// asset textures (loaded by mTextureManager.LoadDirectory after this fn
+	// completes), render-target SRVs/UAVs (~12 slots from BuildSceneRenderTargetDescriptors),
+	// plus headroom. Asset texture count isn't known here — flat cap covers it.
+	mCsuTierStaticCap = kCsuTierStaticHeadroom;
 
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc_unified = {};
 	heapDesc_unified.NumDescriptors = kCsuReservedHead + mCsuTierStaticCap + kCsuTierDynamicCap;
@@ -638,23 +703,14 @@ void MCEngine::BuildDescriptorHeaps()
 	DescHeapManDesc.csuTierStaticCap = mCsuTierStaticCap;
 	DescHeapManDesc.csuTierDynamicCap = kCsuTierDynamicCap;
 	DescHeapManDesc.csuReservedHead = kCsuReservedHead;
-	DHM::Init(DescHeapManDesc);
+	DescHeapManager::Init(DescHeapManDesc);
 
-	auto hDescriptor_Unified = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCbvSrvUavHeap->GetCPUDescriptorHandleForHeapStart());
-
-	// hDescriptor.Offset((INT)mTextureSrvOffset, mCbvSrvUavDescriptorSize);
-	hDescriptor_Unified.Offset(0, mCbvSrvUavDescriptorSize);
-
-	for (auto& e : mTextures) {
-		auto& mtex = *e.second;
-		DHM::Get().CreateSrv2d(mtex, mtex.mResource->GetDesc().Format);
-	}
 }
 
 void MCEngine::BuildConstantBufferViews()
 {
 	UINT objCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PerObjectCB));
-	UINT objCount = mAllRitems.size(); // one render item can be in multiple layers, so use this to get objCount
+	UINT objCount = (UINT)mSceneManager.GetActive()->allRitems.size(); // one render item can be in multiple layers, so use this to get objCount
 	std::cout << "[BuildConstantBufferViews] objCount = " << objCount << std::endl;
 	// Need a CBV descriptor for each object for each frame resource.
 	for (int frameIndex = 0; frameIndex < gNumFrameResources; ++frameIndex) 
@@ -693,49 +749,90 @@ void MCEngine::BuildCamera()
 	mCameraDirty = true;
 }
 
-MCTexture* MCEngine::GetTexture(const std::string& name) const
+// Returns a non-owning pointer; ownership lives in scene.allRitems after insertion.
+// Inserts into scene.allRitems / scene.layers[i] / scene.nameToRitem (D8 Step 1d:
+// scene state lives on the scene permanently; engine reads through mSceneManager.GetActive()).
+// Resolves material against mMaterialManager and geometry against mMeshSourceManager — both
+// via the content-hashed handles deserialized into r->materialHandle / r->meshHandle.
+RenderItem* MCEngine::LoadRenderItemsFromJson(const nlohmann::json& j, MCScene& scene)
 {
-	auto it = mTextures.find(name);
-	return (it == mTextures.end()) ? nullptr : it->second.get();
-}
+	auto r = std::make_unique<RenderItem>();
+	j.get_to(*r);   // canonical ADL invocation — finds ::from_json(json, RenderItem&) in
+						// the global namespace (see SceneSerialization.cpp). Calling
+						// nlohmann::from_json(j, *r) directly does NOT work — that name is
+						// not part of nlohmann's public API for user types. Use j.get_to
+						// or *r = j.get<RenderItem>().
 
-void MCEngine::LoadTextures()
-{
-	for (auto& e : texturesToLoad) {
-		auto tex = std::make_unique<MCTexture>();
-		tex->Name = e.first;
-		tex->Filename = e.second;
-		ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
-			md3dDevice.Get(),
-			mCommandList.Get(),
-			tex->Filename.c_str(),
-			tex->mResource,
-			tex->UploadHeap));
-		std::wstring wname = AnsiToWString(tex->Name);
-		tex->mResource->SetName(wname.c_str());
-		tex->UploadHeap->SetName((L"UPLOAD_" + wname).c_str());
-		std::cout << "loaded texture : " << e.first << std::endl;
-		mTextures[tex->Name] = std::move(tex);
-	}
-	ThrowIfFailed(mCommandList->Close());
-	ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
-	FlushCommandQueue();
-	mDirectCmdListAlloc->Reset();
-	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
+	// 0. Collapse any rename chain on the deserialized handles before consulting the
+	//    managers. In-place mutation: downstream reads of r->materialHandle / r->meshHandle
+	//    (Save, ImGui inspector, debug) see the canonical handle, not the stale on-disk one.
+	r->materialHandle = mSceneManager.ResolveAssetRedirect(r->materialHandle);
+	r->meshHandle     = mSceneManager.ResolveAssetRedirect(r->meshHandle);
 
-	for (auto& e : mTextures) // upload heap is no longer needed for these textures. batch reset.
-		e.second->UploadHeap.Reset();
+	// 1. Resolve material by handle through mMaterialManager. Returns nullptr if
+	//    the handle has no registered material (e.g., manager not yet populated
+	//    via Step-12 cutover — JSON round-trip Load is non-functional until then).
+	r->Mat = mMaterialManager.Get(r->materialHandle);
+	if (!r->Mat) {
+		throw std::runtime_error("LoadRenderItem: unknown material handle "
+			+ std::to_string(r->materialHandle) + " for item '" + r->Name + "'");
+	}
 
-	int q = 0;
-	for (auto& e : mTextures) {
-		std::string name = e.first;
-		mTexturesIndexStrTracker[q] = std::move(name);
-		q++;
+	// 2. Resolve geometry by handle through mMeshSourceManager. Same nullptr
+	//    semantics as material; same Step-12 dependency.
+	r->Geo = mMeshSourceManager.GetGeometry(r->meshHandle);
+	if (!r->Geo) {
+		throw std::runtime_error("LoadRenderItem: unknown mesh handle "
+			+ std::to_string(r->meshHandle) + " for item '" + r->Name + "'");
 	}
-	for (auto& e : mTexturesIndexStrTracker) {
-		mTexturesStrIndexTracker[e.second] = e.first;
+
+	// 3. Resolve submesh and copy DrawArgs. Under drop-merging (8A1+) every
+	//    MCMeshGeometry has exactly one DrawArgs entry, keyed by Geo->Name.
+	//    The v1 SubmeshName authoring field is gone from JSON; populate
+	//    r->SubmeshName here so legacy debug paths that read it still work.
+	r->SubmeshName = r->Geo->Name;
+	auto subIt = r->Geo->DrawArgs.find(r->Geo->Name);
+	if (subIt == r->Geo->DrawArgs.end()) {
+		throw std::runtime_error("LoadRenderItem: geometry '" + r->Geo->Name
+			+ "' has no DrawArgs entry keyed by its own name (drop-merging invariant violated)");
 	}
+	r->IndexCount = subIt->second.IndexCount;
+	r->StartIndexLocation = subIt->second.StartIndexLocation;
+	r->BaseVertexLocation = subIt->second.BaseVertexLocation;
+	r->Bounds = subIt->second.Bounds;
+
+	// 4. PrimitiveType sanity — UNDEFINED (0) is a corrupt-file signal.
+	if (r->PrimitiveType == D3D_PRIMITIVE_TOPOLOGY_UNDEFINED) {
+		throw std::runtime_error("LoadRenderItem: PrimitiveType is UNDEFINED for item '"
+			+ r->Name + "'");
+	}
+
+	// 5. Allocate ObjCBIndex from the free list (Day 5 prerequisite).
+	//    Throws if exhausted — see CBFreeList::Allocate.
+	r->ObjCBIndex = mObjCBFreeList.Allocate();
+
+	// 6. Mark dirty so UpdateObjectCBs recomposes World from SRT next frame
+	//    and pushes to all frame-resource CBs.
+	r->NumFramesDirty = gNumFrameResources;
+
+	// 7. MCScene-side insertion. Mirrors MCScene::AddRenderItem in shape but lives here
+	//    because it also routes through manager-resolved Mat/Geo. Atomicity: name
+	//    uniqueness check first, then scene.layers[i] for every set bit, then
+	//    scene.allRitems takes ownership. If any step throws, the prior inserts must
+	//    be rolled back manually — fragility documented in Step 3.
+	auto [it, inserted] = scene.nameToRitem.try_emplace(r->Name, r.get());
+	if (!inserted) {
+		throw std::runtime_error("LoadRenderItem: duplicate name in scene '"
+			+ scene.name + "': " + r->Name);
+	}
+	for (uint32_t i = 0; i < static_cast<uint32_t>(RenderLayer::Count); ++i) {
+		if (r->Layers & (1u << i)) {
+			scene.layers[i].insert(r.get());
+		}
+	}
+	RenderItem* raw = r.get();
+	scene.allRitems.push_back(std::move(r));
+	return raw;
 }
 
 void MCEngine::OnResize()
@@ -756,7 +853,6 @@ void MCEngine::OnSceneResize()
 	BuildSceneRenderTarget();
 	if (mCbvSrvUavHeap != nullptr)
 		BuildSceneRenderTargetDescriptors();
-	mSobelCBFramesDirty = gNumFrameResources; // with descriptors rebuit, .offset value inside csbs may change. So need to update.
 
 }
 
@@ -764,9 +860,9 @@ void MCEngine::BuildSceneRenderTarget()
 {
 	// OutputDebugString(L"BuildSceneRenderTarget - Starting\n");
 	// Before any CreateCommittedResource() runs, queue old descriptors for reuse and release the resource.
-	// Guarded: D3DApp::Initialize() triggers an OnResize() before BuildDescriptorHeaps() has called DHM::Init().
+	// Guarded: D3DApp::Initialize() triggers an OnResize() before BuildDescriptorHeaps() has called DescHeapManager::Init().
 	if (mCbvSrvUavHeap != nullptr) {
-		auto& dhm = DHM::Get();
+		auto& dhm = DescHeapManager::Get();
 		dhm.QueueRemoval_Texture(mSceneColor);
 		dhm.QueueRemoval_Texture(mSceneDepth);
 		dhm.QueueRemoval_Texture(mDepthDebugColor);
@@ -777,7 +873,8 @@ void MCEngine::BuildSceneRenderTarget()
 		dhm.QueueRemoval_Texture(mSobelOutput);
 		// GPU is idle here (caller flushed the command queue before resize). Drain the
 		// deferred-free list immediately so BuildSceneRenderTargetDescriptors below
-		// reuses the just-retired slots. NOTE: Their order is NOT guaranteed
+		// reuses the just-retired slots. Keeps hGpu.ptr values captured earlier this
+		// frame (e.g. ImGui's ImTextureID) pointing at refreshed descriptors.
 		dhm.FlushPending();
 	}
 	mSceneColor = {};
@@ -984,16 +1081,16 @@ void MCEngine::BuildSceneRenderTarget()
 
 void MCEngine::BuildSceneRenderTargetDescriptors()
 {
-	auto& dhm = DHM::Get();
+	auto& dhm = DescHeapManager::Get();
 
 	// DSV for scene depth (was previously in BuildSceneRenderTarget; route through manager).
 	dhm.CreateDsv(mSceneDepth, D3D12_DSV_FLAG_NONE, DXGI_FORMAT_D24_UNORM_S8_UINT, mScene4xMsaaState, 0);
 
-	// Scene Color: RTV + SRV
+	// MCScene Color: RTV + SRV
 	dhm.CreateRtv2d(mSceneColor, mSceneFormat, mScene4xMsaaState, 0);
 	dhm.CreateSrv2d(mSceneColor, mSceneFormat, mScene4xMsaaState, MC_VIEW_TIER_STATIC);
 
-	// Scene Depth: typeless SRV view of the D24 resource
+	// MCScene Depth: typeless SRV view of the D24 resource
 	dhm.CreateSrv2d(mSceneDepth, DXGI_FORMAT_R24_UNORM_X8_TYPELESS, mScene4xMsaaState, MC_VIEW_TIER_STATIC);
 
 	// Depth Debug: RTV + SRV (non-MSAA, R8G8B8A8)
@@ -1017,7 +1114,7 @@ void MCEngine::BuildSceneRenderTargetDescriptors()
 	dhm.CreateSrv2d(mSobelOutput, mSceneFormat, false, MC_VIEW_TIER_STATIC);
 	dhm.CreateUav2d(mSobelOutput, mSceneFormat, 0, MC_VIEW_TIER_STATIC);
 
-	// Post-process compute CBs cache bindless offsets of the MCTextures above.
+	// Post-process compute CBs cache bindless offsets of the MCTextureResources above.
 	// Offsets shift after every resize (new allocations land at fresh slots), so
 	// re-upload here. mSobelUploadBuffer is re-uploaded every frame in UpdateSobelCB.
 	if (mForceAlphaUploadBuffer) {
@@ -1033,14 +1130,6 @@ float MCEngine::sceneAspectRatio() {
 	return mSceneViewWidth / mSceneViewHeight;
 }
 
-void MCEngine::FixupMaterialDiffuseIndices()
-{
-	for (auto& [name, mat] : mMaterials) {
-		if (!mat->textureName.empty() && mTextures.count(mat->textureName))
-			mat->DiffuseSrvHeapIndex = mTextures[mat->textureName]->SRVs[0].offset;
-	}
-}
-
 void MCEngine::RegisterLights() {
 	mLights.reserve(MAX_LIGHTS);
 	LightData dLight = {};
@@ -1051,10 +1140,21 @@ void MCEngine::RegisterLights() {
 	mLights.push_back(std::move(dLight));
 }
 
-void MCEngine::RegisterScene(std::unique_ptr<Scene> scene)
+// MCEngine::RegisterScene was deleted in D8 Step 1c — moved to MCSceneManager::RegisterScene.
+// MCEngine::SwitchScene was deleted in D8 Step 1c — moved to MCSceneManager::Switch.
+// MCEngine::GetActiveScene / GetScenes were deleted in D8 Step 1c — use engine.Scenes().GetActive() / .All().
+
+// MCEngine::LoadSceneIntoOpenList was deleted in D8 Step 8e — MCScene has no Load() to wrap,
+// and post-8c every scene is loaded via MCSceneManager::LoadFromJson during the LoadAll boot
+// sequence (which runs inside the engine's already-open cmd list).
+
+void MCEngine::RebuildFrameResources()
 {
-	std::string key = scene->name;
-	mScenes[key] = std::move(scene);
+	mFrameResources.clear();
+	mCurrFrameResourceIndex = 0;
+	BuildFrameResources();
+	mCurrFrameResource = mFrameResources[0].get();
+	mDepthDebugFramesDirty = gNumFrameResources;
 }
 
 void MCEngine::ReloadShaders()
@@ -1076,230 +1176,19 @@ void MCEngine::ReloadShaders()
     }
 }
 
-void MCEngine::GrassCullDispatch()
-{
-	if (!mGrassScene || !mGrassScene->useGpuCulling) return;
-	auto* gs = mGrassScene;
-
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0, 200, 100), "Grass Cull CS");
-
-	// 1. Reset counter to 0 (counterReset is GENERIC_READ, counter is COPY_DEST)
-	// note that actual counter is GPU-memory (default heap), so to update it
-	// we need to do something like UpdateSubresource() with an upload heap CPU-memory
-	// but that is a helper function that uses raw cpu-memory data (const void* wrapped in D3D12_SUBRESOURCE_DATA)
-	// This is a lower level API that allows direct copying from one resource to another
-	// see documentation for requirements of using CopyBufferRegion
-	mCommandList->CopyBufferRegion(
-		gs->mGrassCounterBuffer.mResource.Get(), 0,
-		gs->mGrassCounterResetBuffer.mResource.Get(), 0,
-		sizeof(UINT));
-
-	// 2. Transition visible buffer and counter to UAV for CS writes
-	mBarrierManager.TransitionState(gs->mGrassVisibleBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	mBarrierManager.TransitionState(gs->mGrassCounterBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	mBarrierManager.FlushBarriers(mCommandList.Get());
-	/*
-	CD3DX12_RESOURCE_BARRIER toUAV[] = {
-		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassVisibleBuffer.mResource.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
-		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassCounterBuffer.mResource.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
-	};
-	mCommandList->ResourceBarrier(_countof(toUAV), toUAV);
-	*/
-	// 3. Update CullCB — extract world-space frustum planes on CPU, send to shader
-	// mMainPassCB.gViewProj stores Transpose(M_vp), so its rows equal the columns of M_vp.
-	// Gribb-Hartmann (row-vector DX convention): planes come from columns of M_vp.
-	GrassCullCB cullCB = {};
-	{
-		// When frozen, use the snapshot captured at freeze time; otherwise use the live VP.
-		XMMATRIX vpT = mFreezeCamera
-			? XMLoadFloat4x4(&mFrozenViewProjT)
-			: XMLoadFloat4x4(&mMainPassCB.gViewProj);
-		XMVECTOR rawPlanes[6] = {
-			vpT.r[3] + vpT.r[0],   // left
-			vpT.r[3] - vpT.r[0],   // right
-			vpT.r[3] + vpT.r[1],   // bottom
-			vpT.r[3] - vpT.r[1],   // top
-			vpT.r[2],               // near  (DX NDC z >= 0)
-			vpT.r[3] - vpT.r[2],   // far
-		};
-		for (int i = 0; i < 6; i++)
-			XMStoreFloat4(&cullCB.FrustumPlanes[i], XMPlaneNormalize(rawPlanes[i]));
-	}
-	cullCB.EyePosW            = mMainPassCB.gEyePosW;
-	cullCB.DrawDistance       = 500.0f;
-	cullCB.InstanceCount      = gs->mTotalGrassInstances;
-	cullCB.GrassMaterialIndex = gs->mGrassMaterial->MatCBIndex; // always current, even after reassignment
-	cullCB.SphereRadius       = gs->grassHeight;
-	// gs->mGrassCullCB->CopyData(0, cullCB);
-	gs->mGrassCullCB[mCurrFrameResourceIndex]->CopyData(0, cullCB);
-
-	// 4. Dispatch culling CS (one thread per grass instance)
-	mCommandList->SetComputeRootSignature(mGrassCullRootSignature.Get());
-	mCommandList->SetPipelineState(mPSOs["grass_cull_cs"].Get());
-	// mCommandList->SetComputeRootConstantBufferView(0, gs->mGrassCullCB->Resource()->GetGPUVirtualAddress());
-	mCommandList->SetComputeRootConstantBufferView(0, gs->mGrassCullCB[mCurrFrameResourceIndex]->Resource()->GetGPUVirtualAddress());
-	mCommandList->SetComputeRootShaderResourceView(1, gs->mGrassFullInstanceBuffer.mResource->GetGPUVirtualAddress());
-	mCommandList->SetComputeRootUnorderedAccessView(2, gs->mGrassVisibleBuffer.mResource->GetGPUVirtualAddress());
-	mCommandList->SetComputeRootUnorderedAccessView(3, gs->mGrassCounterBuffer.mResource->GetGPUVirtualAddress());
-	UINT groups = (gs->mTotalGrassInstances + 63) / 64;
-	mCommandList->Dispatch(groups, 1, 1);
-
-	/*
-	// 5. UAV barriers: ensure CS writes are visible before reads
-	// this stalls subsequent commands until writes to UAVs are complete
-	CD3DX12_RESOURCE_BARRIER uavBarriers[] = {
-		CD3DX12_RESOURCE_BARRIER::UAV(gs->mGrassVisibleBuffer.mResource.Get()),
-		CD3DX12_RESOURCE_BARRIER::UAV(gs->mGrassCounterBuffer.mResource.Get()),
-	};
-	mCommandList->ResourceBarrier(_countof(uavBarriers), uavBarriers);
-	*/
-	mBarrierManager.InsertUAVBarrier(gs->mGrassVisibleBuffer);
-	mBarrierManager.InsertUAVBarrier(gs->mGrassCounterBuffer);
-	// mBarrierManager.FlushBarriers(mCommandList.Get());
-
-	mBarrierManager.TransitionState(gs->mGrassVisibleBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	mBarrierManager.TransitionState(gs->mGrassCounterBuffer, D3D12_RESOURCE_STATE_COPY_SOURCE);
-	mBarrierManager.TransitionState(gs->mGrassIndirectArgsBuffer, D3D12_RESOURCE_STATE_COPY_DEST);
-	mBarrierManager.FlushBarriers(mCommandList.Get());
-	// 6. Transition: visible → SRV; counter → COPY_SOURCE; indirect args → COPY_DEST
-	/*
-	CD3DX12_RESOURCE_BARRIER postCS[] = {
-		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassVisibleBuffer.mResource.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
-		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassCounterBuffer.mResource.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_COPY_SOURCE),
-		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassIndirectArgsBuffer.mResource.Get(),
-			D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
-			D3D12_RESOURCE_STATE_COPY_DEST),
-	};
-	mCommandList->ResourceBarrier(_countof(postCS), postCS);
-	*/
-
-	// 7. Copy visible count into indirect args InstanceCount field
-	mCommandList->CopyBufferRegion(
-		gs->mGrassIndirectArgsBuffer.mResource.Get(),
-		offsetof(D3D12_DRAW_INDEXED_ARGUMENTS, InstanceCount),
-		gs->mGrassCounterBuffer.mResource.Get(), 0,
-		sizeof(UINT));
-
-	/*
-	// 8. Transition indirect args → INDIRECT_ARGUMENT; counter → COPY_DEST for next frame
-	CD3DX12_RESOURCE_BARRIER postCopy[] = {
-		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassIndirectArgsBuffer.mResource.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT),
-		CD3DX12_RESOURCE_BARRIER::Transition(gs->mGrassCounterBuffer.mResource.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_COPY_DEST),
-	};
-	mCommandList->ResourceBarrier(_countof(postCopy), postCopy);
-	*/
-	mBarrierManager.TransitionState(gs->mGrassCounterBuffer, D3D12_RESOURCE_STATE_COPY_DEST);
-	mBarrierManager.TransitionState(gs->mGrassIndirectArgsBuffer, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
-	mBarrierManager.FlushBarriers(mCommandList.Get());
-
-	PIXEndEvent(mCommandList.Get());
-}
-
-void MCEngine::SwitchScene(const std::string& name)
-{
-	if (mActiveScene && mActiveScene->name == name) return;
-	
-	FlushCommandQueue();
-
-	// --- Reset special render item pointers ---
-	mModelRitem = mReflectedModelRitem = mShadowedModelRitem = mTessellatedRitem = nullptr;
-
-	// --- Move engine data back into the current scene before leaving ---
-	if (mActiveScene) {
-		mActiveScene->Deactivate(*this);
-		mActiveScene->allRitems = std::move(mAllRitems);
-		for (int i = 0; i < (int)RenderLayer::Count; i++)
-			mActiveScene->layers[i] = std::move(mRitemLayer[i]);
-		mActiveScene->geometries        = std::move(mGeometries);
-		mActiveScene->materials         = std::move(mMaterials);
-		mActiveScene->materialIndexTracker = std::move(mMaterialsIndexTracker);
-	} else {
-		mAllRitems.clear();
-		for (auto& layer : mRitemLayer) layer.clear();
-		mGeometries.clear();
-		mMaterials.clear();
-		mMaterialsIndexTracker.clear();
-	}
-
-	// --- Switch to new scene ---
-	mActiveScene = mScenes.at(name).get();
-	if (!mActiveScene->loaded) {
-		ThrowIfFailed(mDirectCmdListAlloc->Reset());
-		ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
-		mActiveScene->Load(*this);
-		mActiveScene->loaded = true;
-		ThrowIfFailed(mCommandList->Close());
-		ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
-		mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
-		FlushCommandQueue();
-	}
-
-	// --- Move data into engine hot paths ---
-	mGeometries        = std::move(mActiveScene->geometries);
-	mMaterials         = std::move(mActiveScene->materials);
-	mMaterialsIndexTracker = std::move(mActiveScene->materialIndexTracker);
-	mAllRitems         = std::move(mActiveScene->allRitems);
-	for (int i = 0; i < (int)RenderLayer::Count; i++)
-		mRitemLayer[i] = std::move(mActiveScene->layers[i]);
-
-	// --- Reassign CB indices ---
-	for (int i = 0; i < (int)mAllRitems.size(); i++)
-		mAllRitems[i]->ObjCBIndex = i;
-	int mi = 0;
-	for (auto& [k, v] : mMaterials) v->MatCBIndex = mi++;
-	// Sync instance MaterialIndex after MatCBIndex reassignment (unordered_map order != build order)
-	/*
-	for (int layer : { (int)RenderLayer::OpaqueInstanced, (int)RenderLayer::GrassInstanced })
-		for (auto* ri : mRitemLayer[layer])
-			for (auto& inst : ri->Instances)
-				inst.MaterialIndex = ri->Mat->MatCBIndex;
-	*/
-	total_objects = (int)mAllRitems.size();
-
-	// --- Rebuild per-frame resources for new counts ---
-	mFrameResources.clear();
-	mCurrFrameResourceIndex = 0;
-	BuildFrameResources();
-	mCurrFrameResource = mFrameResources[0].get(); // must be set before returning to IMGUI_UPDATE
-
-	// --- Rebuild descriptor heap and CBV descriptors ---
-	// FixupMaterialDiffuseIndices();
-
-	// --- Mark everything dirty ---
-	DirtyAllRenderItems();
-	for (auto& [k, v] : mMaterials)
-		v->NumFramesDirty = gNumFrameResources;
-	mDepthDebugFramesDirty = gNumFrameResources;
-
-	// --- Scene-specific camera / lighting / fog ---
-	mActiveScene->Activate(*this);
-	PreInitObjectCBs();
-
-	std::cout << "SwitchScene -> '" << name << "': " << total_objects << " render items\n";
-	OutputDebugStringA(("SwitchScene -> '" + name + "'\n").c_str());
-}
-
 void MCEngine::BuildFrameResources()
 {
-	UINT objCount = max(1u, (UINT)mAllRitems.size());
-	UINT matCount = max(1u, (UINT)mMaterials.size());
+	auto* scene = mSceneManager.GetActive();
+	constexpr UINT kObjCBHeadroom = 64u;  // spare slots for runtime LoadRenderItemsFromJson
+	UINT objCount = max(1u, (UINT)scene->allRitems.size() + kObjCBHeadroom);
+	mObjCBCapacity = objCount;
+	constexpr UINT kMatCBHeadroom = 32u;
+	UINT matCount = max(1u, (UINT)mMaterialManager.All().size() + kMatCBHeadroom);
 	UINT totalInstances = 0;
-	for (auto* ri : mRitemLayer[(int)RenderLayer::OpaqueInstanced])
+	for (auto* ri : scene->layers[(int)RenderLayer::OpaqueInstanced])
 		totalInstances += (UINT)ri->Instances.size();
 	UINT totalGrassInstances = 0;
-	for (auto* ri : mRitemLayer[(int)RenderLayer::GrassInstanced])
+	for (auto* ri : scene->layers[(int)RenderLayer::GrassInstanced])
 		totalGrassInstances += (UINT)ri->GrassInstances.size();
 
 	for (int i = 0; i < gNumFrameResources; ++i)
@@ -1315,7 +1204,7 @@ void MCEngine::BuildFrameResources()
 std::vector<float> MCEngine::CalcGaussWeights(float sigma)
 {
 	float twoSigma2 = 2.0f * sigma * sigma;
-	float MaxBlurRadius = 15;
+	int MaxBlurRadius = 15;
 	// Estimate the blur radius based on sigma since sigma controls the "width" of the bell curve.
 	int blurRadius = (int)ceil(2.0f * sigma);
 	blurRadius = blurRadius <= MaxBlurRadius ? blurRadius : MaxBlurRadius;
@@ -1347,17 +1236,14 @@ void MCEngine::BuildComputeShaderConstantBufferResources()
 	mForceAlphaUploadBuffer->CopyData(0, forceAlphaCB);
 	mForceAlphaUploadBuffer->Resource()->SetName(L"mForceAlphaUploadBuffer");
 
+	mSobelUploadBuffer = std::make_unique<UploadBuffer<CSB_default>>(md3dDevice.Get(), 1, 1);
 	CSB_default csbs;
-	csbs.InputIndex = (INT)mBlurred0.SRVs[0].offset;
+	csbs.InputIndex  = (INT)mBlurred0.SRVs[0].offset;
 	csbs.OutputIndex = (INT)mSobelOutput.UAVs[0].offset;
-	csbs.Width = (INT)mViewportNoAlpha.SRVs[0].offset;
-	csbs.Height = (INT)mDepthDebugColor.SRVs[0].offset;
-	int i = 0;
-	for (auto& fr : mFrameResources) {
-		fr->SobelCB.get()->CopyData(0, csbs);
-		std::wstring name =	std::format(L"mSobelCB_{}", i);
-		fr->SobelCB.get()->Resource()->SetName(name.c_str());
-	}
+	csbs.Width       = (INT)mViewportNoAlpha.SRVs[0].offset;
+	csbs.Height      = (INT)mDepthDebugColor.SRVs[0].offset;
+	mSobelUploadBuffer.get()->CopyData(0, csbs);
+	mSobelUploadBuffer.get()->Resource()->SetName(L"mSobelUploadBuffer");
 	
 	auto blurBuf = std::make_unique<UploadBuffer<CSB_blur>>(md3dDevice.Get(), 2, 1);
 	CSB_blur blurCB0;
@@ -1433,17 +1319,20 @@ void MCEngine::DrawInstanceRenderItems(ID3D12GraphicsCommandList* cmdList, const
 }
 
 void MCEngine::DirtyAllRenderItems() {
-	
-	for (auto& ri : mAllRitems)
+	auto* scene = mSceneManager.GetActive();
+	if (!scene) return;
+	for (auto& ri : scene->allRitems)
 		ri->NumFramesDirty = gNumFrameResources;
 	// static int dirtycounter = 0;
 	// std::cout << "dirtied all frame resources to value 3, count : " << dirtycounter++ << std::endl;
 }
 
 void MCEngine::PreInitObjectCBs() {
+	auto* scene = mSceneManager.GetActive();
+	if (!scene) return;
 	for (auto& fr : mFrameResources) {
 		auto objCB = fr->ObjectCB.get();
-		for (auto& e : mAllRitems) {
+		for (auto& e : scene->allRitems) {
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
 			XMMATRIX texTransform = XMLoadFloat4x4(&e->TexTransform);
 			PerObjectCB obj;
@@ -1521,7 +1410,8 @@ void MCEngine::Draw(const GameTimer& gt)
 	mCommandList->ClearDepthStencilView(sceneDsv, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 	mCommandList->OMSetRenderTargets(1, &sceneRtv, true, &sceneDsv);
 
-	GrassCullDispatch();
+	mSceneManager.GetActive()->Draw(*this);
+	// GrassCullDispatch();
 	ForwardPass(gt);
 	TessellationExample(gt);
 
@@ -1620,6 +1510,7 @@ void MCEngine::Draw(const GameTimer& gt)
 		mBarrierManager.FlushBarriers(mCommandList.Get());
 
 		mCommandList->CopyResource(mBlurred0.mResource.Get(), mViewportNoAlpha.mResource.Get());
+
 		auto blurCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(CSB_blur));
 		D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss0 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress();
 		D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss1 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress() + blurCBByteSize;
@@ -1632,7 +1523,7 @@ void MCEngine::Draw(const GameTimer& gt)
 			mBarrierManager.FlushBarriers(mCommandList.Get());
 			mCommandList->SetPipelineState(mPSOs["horzBlur"].Get());
 			mCommandList->SetComputeRootConstantBufferView(0, blurCBaddresss0);
-			mCommandList->Dispatch(blurGroupsX, mSceneViewHeight, 1);
+			mCommandList->Dispatch(blurGroupsX, static_cast<UINT>(mSceneViewHeight), 1);
 
 			// VERTICAL BLUR
 			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -1640,7 +1531,7 @@ void MCEngine::Draw(const GameTimer& gt)
 			mBarrierManager.FlushBarriers(mCommandList.Get());
 			mCommandList->SetPipelineState(mPSOs["vertBlur"].Get());
 			mCommandList->SetComputeRootConstantBufferView(0, blurCBaddresss1);
-			mCommandList->Dispatch(mSceneViewWidth, blurGroupsY, 1);
+			mCommandList->Dispatch(static_cast<UINT>(mSceneViewWidth), blurGroupsY, 1);
 		}
 		PIXEndEvent(mCommandList.Get());
 	}
@@ -1652,13 +1543,29 @@ void MCEngine::Draw(const GameTimer& gt)
 		UINT sobelGroupsX = (UINT)ceilf(mSceneViewWidth / 8.0f);
 		UINT sobelGroupsY = (UINT)ceilf(mSceneViewHeight / 8.0f);
 
-		UpdateSobelState();
+		switch (mSobelType) {
+		case SobelType::Default:
+			mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			break;
+		case SobelType::Depth:
+			mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			break;
+		case SobelType::Gaussain:
+		default:
+			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			break;
+		}
+		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		mBarrierManager.FlushBarriers(mCommandList.Get());
 
 		mCommandList->SetPipelineState(mPSOs["sobel"].Get());
-		D3D12_GPU_VIRTUAL_ADDRESS sobelCBaddress = mCurrFrameResource->SobelCB->Resource()->GetGPUVirtualAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS sobelCBaddress = mSobelUploadBuffer->Resource()->GetGPUVirtualAddress();
 		mCommandList->SetComputeRootConstantBufferView(0, sobelCBaddress);
 		mCommandList->Dispatch(sobelGroupsX, sobelGroupsY, 1);
+		/*
+		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_GENERIC_READ);
+		mBarrierManager.FlushBarriers(mCommandList.Get());
+		*/
 		PIXEndEvent(mCommandList.Get());
 	}
 	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 6);
@@ -1672,7 +1579,7 @@ void MCEngine::Draw(const GameTimer& gt)
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "set back buffer as render target");
 	auto transition_BB = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	mCommandList->ResourceBarrier(1, &transition_BB); // TODO(barrier-tracker): Back Buffers are not wrapped by MCTexture, and I don't see a reason to do so. When splitting into runtime / editor, may be (phase 3)
+	mCommandList->ResourceBarrier(1, &transition_BB);
 	mCommandList->RSSetViewports(1, &mScreenViewport);
 	mCommandList->RSSetScissorRects(1, &mScissorRect);
 	auto backRtv = CurrentBackBufferView();

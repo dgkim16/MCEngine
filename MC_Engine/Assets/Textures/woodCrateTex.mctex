@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/WoodCrate01.dds",
+  "displayName": "woodCrateTex",
+  "handle": "6312762997376321317",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/water1.dds",
+  "displayName": "waterTex",
+  "handle": "13322546331178027829",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

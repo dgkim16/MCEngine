@@ -116,7 +116,9 @@ protected:
 	UINT mCbvSrvUavDescriptorSize = 0;		// value assigned in D3DApp::create_Fence_Query_Descriptor_size()
 
 	// Derived class should set these in derived constructor to customize starting values.
-	std::wstring mMainWndCaption = L"d3d App";
+	std::wstring mMainWndCaption = L"MC Engine";
+	std::wstring mFpsStr = L"mFpsStr";
+	std::wstring mMspfStr = L"mMspfStr";
 	D3D_DRIVER_TYPE md3dDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;

@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/white1x1.dds",
+  "displayName": "defaultTex",
+  "handle": "16963734335525626005",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

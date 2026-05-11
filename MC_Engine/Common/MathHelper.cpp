@@ -41,3 +41,42 @@ XMMATRIX MathHelper::LerpMatrix(XMMATRIX& A, XMMATRIX& B, float& t)
         XMVectorLerp(A.r[3], B.r[3], t)
     );
 }
+
+XMMATRIX MathHelper::ComposeWorldMatrix(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT4& rot, const DirectX::XMFLOAT3& scale)
+{
+    XMVECTOR S = XMLoadFloat3(&scale);
+    XMVECTOR R = XMQuaternionNormalize(XMLoadFloat4(&rot));  // renormalize defensively
+    XMVECTOR T = XMLoadFloat3(&pos);
+
+    return XMMatrixScalingFromVector(S)
+        * XMMatrixRotationQuaternion(R)
+        * XMMatrixTranslationFromVector(T);
+}
+
+/*
+* M = XMMatrixRotationQuaternion(XMVECTOR quat)
+* Pitch (\(\theta \)) = \(\arcsin(-M_{32})\)
+* Yaw (\(\psi \)) = \(\arctan2(M_{31}, M_{33})\)
+* Roll (\(\phi \)) = \(\arctan2(M_{12}, M_{22})\)
+*/
+XMFLOAT3 MathHelper::QuatToEulerDegrees(const DirectX::XMFLOAT4& Q) {
+    XMVECTOR R = XMQuaternionNormalize(XMLoadFloat4(&Q));
+    XMFLOAT4X4 m;
+    XMStoreFloat4x4(&m, XMMatrixRotationQuaternion(R));
+    XMFLOAT3 euler { 
+        XMConvertToDegrees(std::asin(-1.0 * m._32)), 
+        XMConvertToDegrees(std::atan2(m._31, m._33)),
+        XMConvertToDegrees(std::atan2(m._12,m._22))
+    };
+    return euler;
+}
+
+XMFLOAT4 MathHelper::EulerDegreesToQuat(const DirectX::XMFLOAT3& E) {
+    XMVECTOR Q = XMQuaternionRotationRollPitchYaw(
+        XMConvertToRadians(E.x),   // pitch (X)
+        XMConvertToRadians(E.y),   // yaw   (Y)
+        XMConvertToRadians(E.z));  // roll  (Z)
+    XMFLOAT4 out;
+    XMStoreFloat4(&out, Q);
+    return out;
+}

@@ -86,20 +86,20 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(PIXEventRuntime);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Includes\imgui;$(SolutionDir)Common;C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Includes;C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Common;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Libs\Any;C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(PIXEventRuntime);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Includes\imgui;$(SolutionDir)Common;C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Includes;C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Common;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Libs\Any;C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -129,7 +129,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions);MC_AUTHOR_SCENES_ONCE</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -173,7 +173,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions);MC_AUTHOR_SCENES_ONCE</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -201,6 +201,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Assets\Shaders\SharedTypes.h" />
+    <ClInclude Include="AuthorScenes.h" />
     <ClInclude Include="BarrierManager.h" />
     <ClInclude Include="Common\Camera.h" />
     <ClInclude Include="Common\d3dApp.h" />
@@ -216,28 +217,45 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="Includes\imgui\imconfig.h" />
     <ClInclude Include="Includes\imgui\imgui.h" />
+    <ClInclude Include="Includes\imgui\ImGuizmo.h" />
     <ClInclude Include="Includes\imgui\imgui_impl_dx12.h" />
     <ClInclude Include="Includes\imgui\imgui_impl_win32.h" />
     <ClInclude Include="Includes\imgui\imgui_internal.h" />
     <ClInclude Include="Includes\imgui\imstb_rectpack.h" />
     <ClInclude Include="Includes\imgui\imstb_textedit.h" />
     <ClInclude Include="Includes\imgui\imstb_truetype.h" />
+    <ClInclude Include="JsonMigrator.h" />
+    <ClInclude Include="MCAssetIdentity.h" />
     <ClInclude Include="MCEngine.h" />
+    <ClInclude Include="MCGrassCullingModule.h" />
+    <ClInclude Include="MCMaterial.h" />
+    <ClInclude Include="MCMaterialManager.h" />
+    <ClInclude Include="MCMeshGeometry.h" />
+    <ClInclude Include="MCMeshSource.h" />
+    <ClInclude Include="MCMeshSourceManager.h" />
+    <ClInclude Include="MCScene.h" />
+    <ClInclude Include="MCSceneManager.h" />
+    <ClInclude Include="MCSceneModule.h" />
+    <ClInclude Include="MCTexture.h" />
+    <ClInclude Include="MCTextureManager.h" />
+    <ClInclude Include="MCVertex.h" />
+    <ClInclude Include="MC_AssetTests.h" />
+    <ClInclude Include="MC_FileDialog.h" />
     <ClInclude Include="MC_Picker.h" />
     <ClInclude Include="MC_Types.h" />
     <ClInclude Include="modelLoader.h" />
+    <ClInclude Include="CBFreeList.h" />
     <ClInclude Include="RenderItem.h" />
     <ClInclude Include="Resource.h" />
-    <ClInclude Include="Scene.h" />
-    <ClInclude Include="Scene_Ch7.h" />
-    <ClInclude Include="Scene_Empty.h" />
-    <ClInclude Include="Scene_grass.h" />
+    <ClInclude Include="SceneSerialization.h" />
     <ClInclude Include="ShaderLib.h" />
     <ClInclude Include="ShaderMacros.h" />
     <ClInclude Include="Singleton.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="TesterConsole.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AuthorScenes.cpp" />
     <ClCompile Include="BarrierManager.cpp" />
     <ClCompile Include="Common\Camera.cpp" />
     <ClCompile Include="Common\d3dApp.cpp" />
@@ -252,12 +270,14 @@
     <ClCompile Include="DescHeapManager.cpp" />
     <ClCompile Include="ForwardPass.cpp" />
     <ClCompile Include="Includes\imgui\imgui.cpp" />
+    <ClCompile Include="Includes\imgui\ImGuizmo.cpp" />
     <ClCompile Include="Includes\imgui\imgui_demo.cpp" />
     <ClCompile Include="Includes\imgui\imgui_draw.cpp" />
     <ClCompile Include="Includes\imgui\imgui_impl_dx12.cpp" />
     <ClCompile Include="Includes\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="Includes\imgui\imgui_tables.cpp" />
     <ClCompile Include="Includes\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="JsonMigrator.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MCEngine.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
@@ -265,19 +285,30 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="MCGrassCullingModule.cpp" />
+    <ClCompile Include="MCMaterialManager.cpp" />
+    <ClCompile Include="MCMeshSourceManager.cpp" />
+    <ClCompile Include="MCScene.cpp" />
+    <ClCompile Include="MCSceneManager.cpp" />
+    <ClCompile Include="MCTextureManager.cpp" />
+    <ClCompile Include="MC_AssetTests.cpp" />
     <ClCompile Include="MC_Controls.cpp" />
     <ClCompile Include="MC_debug.cpp" />
+    <ClCompile Include="MC_FileDialog.cpp" />
     <ClCompile Include="MC_imgui.cpp" />
     <ClCompile Include="MC_imgui_DescHeapVis.cpp" />
+    <ClCompile Include="MC_imgui_InspectorPanel.cpp" />
+    <ClCompile Include="MC_imgui_Menubar.cpp" />
+    <ClCompile Include="MC_imgui_outliner.cpp" />
     <ClCompile Include="MC_Picker.cpp" />
     <ClCompile Include="MC_PipelineManager.cpp" />
     <ClCompile Include="modelLoader.cpp" />
+    <ClCompile Include="CBFreeList.cpp" />
     <ClCompile Include="ProfileRecorder.cpp" />
-    <ClCompile Include="Scene_Ch7.cpp" />
-    <ClCompile Include="Scene_Empty.cpp" />
-    <ClCompile Include="Scene_grass.cpp" />
+    <ClCompile Include="SceneSerialization.cpp" />
     <ClCompile Include="ShaderLib.cpp" />
     <ClCompile Include="ShaderLibDx.cpp" />
+    <ClCompile Include="TesterConsole.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="MC_main.rc" />

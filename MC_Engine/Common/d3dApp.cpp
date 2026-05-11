@@ -227,6 +227,18 @@ bool D3DApp::InitMainWindow()
 		return false;
 	}
 
+	// Scale the hardcoded client-area defaults (mClientWidth/Height) by system DPI
+	// so the window looks the same physical size regardless of display scaling.
+	// Required after SetProcessDpiAwarenessContext(...PER_MONITOR_AWARE_V2) in
+	// WinMain — pre-DPI-awareness, Windows bilinear-stretched a 1280x800 logical
+	// window to ~1920x1200 physical on a 150% display; now those numbers are
+	// taken literally, so the window appears 33% smaller without this fixup.
+	// GetDpiForSystem returns the primary monitor's effective DPI (96 = 100%).
+	const UINT  sysDpi   = GetDpiForSystem();
+	const float dpiScale = (sysDpi > 0) ? sysDpi / 96.0f : 1.0f;
+	mClientWidth  = static_cast<int>(mClientWidth  * dpiScale);
+	mClientHeight = static_cast<int>(mClientHeight * dpiScale);
+
 	// Compute window rectangle dimensions based on requested client area dimensions.
 	RECT R = { 0, 0, mClientWidth, mClientHeight };
 	AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);
@@ -264,14 +276,11 @@ void D3DApp::CalculateFrameStats()
 		float fps = (float)frameCnt; // fps = frameCnt / 1
 		float mspf = 1000.0f / fps;
 
-		std::wstring fpsStr = std::to_wstring(fps);
-		std::wstring mspfStr = std::to_wstring(mspf);
+		// std::wstring fpsStr = std::to_wstring(fps);
+		// std::wstring mspfStr = std::to_wstring(mspf);
 
-		std::wstring windowText = mMainWndCaption +
-			L"    fps: " + fpsStr +
-			L"   mspf: " + mspfStr;
-
-		SetWindowText(mhMainWnd, windowText.c_str());
+		mFpsStr = std::to_wstring(static_cast<int>(fps));
+		mMspfStr = std::to_wstring(static_cast<int>(mspf));
 
 		// Reset for next average.
 		frameCnt = 0;

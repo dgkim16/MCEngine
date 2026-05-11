@@ -58,7 +58,7 @@ enum MC_VIEW_TIER {
 
 struct DescHeapHandle {
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpu;
-	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpu;
+	CD3DX12_GPU_DESCRIPTOR_HANDLE hGpu; // needs fix : this should be owned by MCResource - it's identical across different views
 	int offset = -1;
 	MC_VIEW_TIER tier = MC_VIEW_TIER_STATIC;
 };
@@ -75,10 +75,10 @@ protected:
 	MCResource(MC_D3_RESOURCE_TYPE type, D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON) : Type(type), m_currState(state) {}
 };
 
-class MCTexture : public MCResource {
+class MCTextureResource : public MCResource {
 public:
-	MCTexture() : MCResource(MC_D3_RESOURCE_TYPE_TEXTURE) {}
-	MCTexture(D3D12_RESOURCE_STATES state) : MCResource(MC_D3_RESOURCE_TYPE_TEXTURE, state) {}
+	MCTextureResource() : MCResource(MC_D3_RESOURCE_TYPE_TEXTURE) {}
+	MCTextureResource(D3D12_RESOURCE_STATES state) : MCResource(MC_D3_RESOURCE_TYPE_TEXTURE, state) {}
 	std::wstring Filename;
 
 	std::vector<DescHeapHandle> SRVs = {};
@@ -87,10 +87,10 @@ public:
 	std::vector<DescHeapHandle> DSVs = {};
 };
 
-class MCBuffer : public MCResource {
+class MCBufferResource : public MCResource {
 public:
-	MCBuffer() : MCResource(MC_D3_RESOURCE_TYPE_BUFFER) {}
-	MCBuffer(D3D12_RESOURCE_STATES state) : MCResource(MC_D3_RESOURCE_TYPE_BUFFER, state) {}
+	MCBufferResource() : MCResource(MC_D3_RESOURCE_TYPE_BUFFER) {}
+	MCBufferResource(D3D12_RESOURCE_STATES state) : MCResource(MC_D3_RESOURCE_TYPE_BUFFER, state) {}
 	UINT64 firstElement = 0;
 	UINT elementCount = 0;
 	UINT elementByteSize = 0;

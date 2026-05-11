@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/teapot_normal.dds",
+  "displayName": "teapot_normal",
+  "handle": "9584932070317092062",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

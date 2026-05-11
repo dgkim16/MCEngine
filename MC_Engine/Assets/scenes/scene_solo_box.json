@@ -1,0 +1,69 @@
+{
+  "materialHandles": [
+    "10583501380713305711"
+  ],
+  "meshes": [
+    {
+      "kind": "Procedural_Box",
+      "name": "ch7_box_mesh",
+      "params": {
+        "d": 1.5,
+        "h": 0.5,
+        "subdivisions": 3,
+        "w": 1.5
+      }
+    }
+  ],
+  "modules": [],
+  "renderItems": [
+    {
+      "Name": "solo_box",
+      "Position": {
+        "x": 0.0,
+        "y": 0.5,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "6727357290574742156",
+      "useCellCulling": false
+    }
+  ],
+  "sceneName": "SoloBox",
+  "specialPointers": {},
+  "textureHandles": [],
+  "version": 1
+}

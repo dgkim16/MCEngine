@@ -1,0 +1,1366 @@
+{
+  "materialHandles": [
+    "661115579065148154",
+    "1105236390482812453",
+    "1210682268114880524",
+    "6167949444237596296",
+    "9025771925824246379",
+    "10583501380713305711",
+    "13542641408945055783",
+    "13774351835621373130"
+  ],
+  "meshes": [
+    {
+      "kind": "Procedural_Box",
+      "name": "ch7_box_mesh",
+      "params": {
+        "d": 1.5,
+        "h": 0.5,
+        "subdivisions": 3,
+        "w": 1.5
+      }
+    },
+    {
+      "kind": "Procedural_Grid",
+      "name": "ch7_grid_mesh",
+      "params": {
+        "d": 30.0,
+        "m": 60,
+        "n": 40,
+        "w": 20.0
+      }
+    },
+    {
+      "kind": "Procedural_Sphere",
+      "name": "ch7_sphere_mesh",
+      "params": {
+        "radius": 0.5,
+        "slices": 20,
+        "stacks": 20
+      }
+    },
+    {
+      "kind": "Procedural_Cylinder",
+      "name": "ch7_cylinder_mesh",
+      "params": {
+        "bottomRadius": 0.5,
+        "height": 3.0,
+        "slices": 20,
+        "stacks": 20,
+        "topRadius": 0.30000001192092896
+      }
+    },
+    {
+      "kind": "ImportedFromFile",
+      "name": "ch7_model_mesh",
+      "params": {
+        "path": "Assets/Models/다람디.obj"
+      }
+    },
+    {
+      "kind": "Procedural_Quad",
+      "name": "ch7_quad_mesh",
+      "params": {
+        "h": 2.0,
+        "w": 2.0,
+        "x": -1.0,
+        "y": -1.0,
+        "z": 0.0
+      }
+    },
+    {
+      "kind": "Procedural_RandomSpritePoints",
+      "name": "ch7_treesprites_mesh",
+      "params": {
+        "count": 16,
+        "exclusionRadius": 20.0,
+        "regionMax": [
+          45.0,
+          8.0,
+          45.0
+        ],
+        "regionMin": [
+          -45.0,
+          8.0,
+          -45.0
+        ],
+        "spriteSize": [
+          20.0,
+          20.0
+        ]
+      }
+    }
+  ],
+  "modules": [],
+  "renderItems": [
+    {
+      "Name": "ch7_box",
+      "Position": {
+        "x": 0.0,
+        "y": 0.5,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 2.0,
+        "y": 2.0,
+        "z": 2.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "6727357290574742156",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_model",
+      "Position": {
+        "x": 0.0,
+        "y": 2.0,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "1105236390482812453",
+      "meshHandle": "12846139837297374013",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_model_reflected",
+      "Position": {
+        "x": 0.0,
+        "y": 2.0,
+        "z": -10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Reflected"
+      ],
+      "materialHandle": "1210682268114880524",
+      "meshHandle": "12846139837297374013",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_grid",
+      "Position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 5.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 5.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "13774351835621373130",
+      "meshHandle": "15441624809300432550",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_quad",
+      "Position": {
+        "x": 0.0,
+        "y": 3.0,
+        "z": 0.0
+      },
+      "PrimitiveType": 36,
+      "Rotation": {
+        "w": 0.7071067094802856,
+        "x": 0.7071067690849304,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "OpaqueTessellated"
+      ],
+      "materialHandle": "13542641408945055783",
+      "meshHandle": "9559994517520452383",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_mirror",
+      "Position": {
+        "x": 0.0,
+        "y": 3.0,
+        "z": -5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 0.7071067094802856,
+        "x": 0.7071067690849304,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 0.5,
+        "y": 1.0,
+        "z": 0.25
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Mirrors",
+        "Transparent"
+      ],
+      "materialHandle": "6167949444237596296",
+      "meshHandle": "15441624809300432550",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_water",
+      "Position": {
+        "x": 0.0,
+        "y": 0.5,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 5.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 5.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Transparent"
+      ],
+      "materialHandle": "661115579065148154",
+      "meshHandle": "15441624809300432550",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_treeSprites",
+      "Position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "PrimitiveType": 1,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 0.10000000149011612,
+        "y": 0.10000000149011612,
+        "z": 0.10000000149011612
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": false,
+      "layers": [
+        "AlphaTestedTreeSprites"
+      ],
+      "materialHandle": "9025771925824246379",
+      "meshHandle": "12256230658189356555",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftCyl_0",
+      "Position": {
+        "x": -5.0,
+        "y": 1.5,
+        "z": -10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightCyl_0",
+      "Position": {
+        "x": 5.0,
+        "y": 1.5,
+        "z": -10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftSphere_0",
+      "Position": {
+        "x": -5.0,
+        "y": 3.5,
+        "z": -10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightSphere_0",
+      "Position": {
+        "x": 5.0,
+        "y": 3.5,
+        "z": -10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftCyl_1",
+      "Position": {
+        "x": -5.0,
+        "y": 1.5,
+        "z": -5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightCyl_1",
+      "Position": {
+        "x": 5.0,
+        "y": 1.5,
+        "z": -5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftSphere_1",
+      "Position": {
+        "x": -5.0,
+        "y": 3.5,
+        "z": -5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightSphere_1",
+      "Position": {
+        "x": 5.0,
+        "y": 3.5,
+        "z": -5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftCyl_2",
+      "Position": {
+        "x": -5.0,
+        "y": 1.5,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightCyl_2",
+      "Position": {
+        "x": 5.0,
+        "y": 1.5,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftSphere_2",
+      "Position": {
+        "x": -5.0,
+        "y": 3.5,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightSphere_2",
+      "Position": {
+        "x": 5.0,
+        "y": 3.5,
+        "z": 0.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftCyl_3",
+      "Position": {
+        "x": -5.0,
+        "y": 1.5,
+        "z": 5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "6299431977218996650",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightCyl_3",
+      "Position": {
+        "x": 5.0,
+        "y": 1.5,
+        "z": 5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftSphere_3",
+      "Position": {
+        "x": -5.0,
+        "y": 3.5,
+        "z": 5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightSphere_3",
+      "Position": {
+        "x": 5.0,
+        "y": 3.5,
+        "z": 5.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftCyl_4",
+      "Position": {
+        "x": -5.0,
+        "y": 1.5,
+        "z": 10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightCyl_4",
+      "Position": {
+        "x": 5.0,
+        "y": 1.5,
+        "z": 10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "15037841928394818209",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_leftSphere_4",
+      "Position": {
+        "x": -5.0,
+        "y": 3.5,
+        "z": 10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    },
+    {
+      "Name": "ch7_rightSphere_4",
+      "Position": {
+        "x": 5.0,
+        "y": 3.5,
+        "z": 10.0
+      },
+      "PrimitiveType": 4,
+      "Rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "Scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "TexTransform": {
+        "m00": 1.0,
+        "m01": 0.0,
+        "m02": 0.0,
+        "m03": 0.0,
+        "m10": 0.0,
+        "m11": 1.0,
+        "m12": 0.0,
+        "m13": 0.0,
+        "m20": 0.0,
+        "m21": 0.0,
+        "m22": 1.0,
+        "m23": 0.0,
+        "m30": 0.0,
+        "m31": 0.0,
+        "m32": 0.0,
+        "m33": 1.0
+      },
+      "checkBounds": true,
+      "layers": [
+        "Opaque"
+      ],
+      "materialHandle": "10583501380713305711",
+      "meshHandle": "17649644107768997728",
+      "useCellCulling": false
+    }
+  ],
+  "sceneName": "Ch7",
+  "specialPointers": {
+    "modelRitem": "ch7_model",
+    "reflectedModelRitem": "ch7_model_reflected",
+    "tessellatedRitem": "ch7_quad"
+  },
+  "textureHandles": [],
+  "version": 1
+}

@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/다람디.dds",
+  "displayName": "modelTex",
+  "handle": "1328698303107511708",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

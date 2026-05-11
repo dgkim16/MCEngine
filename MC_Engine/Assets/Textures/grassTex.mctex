@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/grass.dds",
+  "displayName": "grassTex",
+  "handle": "14836448992349344832",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

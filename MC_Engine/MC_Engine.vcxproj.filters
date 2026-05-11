@@ -46,9 +46,6 @@
     <ClCompile Include="MC_debug.cpp">
       <Filter>MC_Engine</Filter>
     </ClCompile>
-    <ClCompile Include="MC_imgui.cpp">
-      <Filter>MC_Engine</Filter>
-    </ClCompile>
     <ClCompile Include="MC_PipelineManager.cpp">
       <Filter>MC_Engine</Filter>
     </ClCompile>
@@ -57,15 +54,6 @@
     </ClCompile>
     <ClCompile Include="ProfileRecorder.cpp">
       <Filter>MC_Engine\Profiler</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene_Ch7.cpp">
-      <Filter>Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene_Empty.cpp">
-      <Filter>Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene_grass.cpp">
-      <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="ShaderLib.cpp">
       <Filter>shader_nocompile\shader_cpp</Filter>
@@ -136,23 +124,70 @@
     <ClCompile Include="DescHeapManager.cpp">
       <Filter>MC_Engine\DescriptorHeap</Filter>
     </ClCompile>
-    <ClCompile Include="MC_imgui_DescHeapVis.cpp" />
     <ClCompile Include="BarrierManager.cpp">
       <Filter>MC_Engine\BarrierManager</Filter>
+    </ClCompile>
+    <ClCompile Include="AuthorScenes.cpp">
+      <Filter>MC_Engine\MC_Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneSerialization.cpp">
+      <Filter>Core\SceneSerialization</Filter>
+    </ClCompile>
+    <ClCompile Include="CBFreeList.cpp">
+      <Filter>MC_Engine\CBFreeList</Filter>
+    </ClCompile>
+    <ClCompile Include="TesterConsole.cpp">
+      <Filter>TesterConsole</Filter>
+    </ClCompile>
+    <ClCompile Include="JsonMigrator.cpp">
+      <Filter>MC_Engine\JsonMigrator</Filter>
+    </ClCompile>
+    <ClCompile Include="MCMeshSourceManager.cpp">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="MCMaterialManager.cpp">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="MCTextureManager.cpp">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="MCSceneManager.cpp">
+      <Filter>MC_Engine\MC_Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="MCScene.cpp">
+      <Filter>MC_Engine\MC_Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="MCGrassCullingModule.cpp">
+      <Filter>MC_Engine\MC_Scene\SceneModules</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_AssetTests.cpp">
+      <Filter>MC_Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui.cpp">
+      <Filter>MC_Engine\MC_imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui_DescHeapVis.cpp">
+      <Filter>MC_Engine\MC_imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui_InspectorPanel.cpp">
+      <Filter>MC_Engine\MC_imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui_outliner.cpp">
+      <Filter>MC_Engine\MC_imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui_Menubar.cpp">
+      <Filter>MC_Engine\MC_imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_FileDialog.cpp">
+      <Filter>MC_Engine\MC_file</Filter>
+    </ClCompile>
+    <ClCompile Include="Includes\imgui\ImGuizmo.cpp">
+      <Filter>Core\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MCEngine.h">
       <Filter>MC_Engine</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene_Ch7.h">
-      <Filter>Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene_Empty.h">
-      <Filter>Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene_grass.h">
-      <Filter>Scene</Filter>
     </ClInclude>
     <ClInclude Include="ShaderLib.h">
       <Filter>shader_nocompile\shader_cpp</Filter>
@@ -171,9 +206,6 @@
     </ClInclude>
     <ClInclude Include="Resource.h">
       <Filter>99_other</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene.h">
-      <Filter>Scene</Filter>
     </ClInclude>
     <ClInclude Include="targetver.h">
       <Filter>99_other</Filter>
@@ -250,6 +282,69 @@
     <ClInclude Include="BarrierManager.h">
       <Filter>MC_Engine\BarrierManager</Filter>
     </ClInclude>
+    <ClInclude Include="AuthorScenes.h">
+      <Filter>MC_Engine\MC_Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneSerialization.h">
+      <Filter>Core\SceneSerialization</Filter>
+    </ClInclude>
+    <ClInclude Include="CBFreeList.h">
+      <Filter>MC_Engine\CBFreeList</Filter>
+    </ClInclude>
+    <ClInclude Include="TesterConsole.h">
+      <Filter>TesterConsole</Filter>
+    </ClInclude>
+    <ClInclude Include="MCAssetIdentity.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="MCMaterial.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="MCTexture.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="MCMeshGeometry.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="MCVertex.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="JsonMigrator.h">
+      <Filter>MC_Engine\JsonMigrator</Filter>
+    </ClInclude>
+    <ClInclude Include="MCMaterialManager.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="MCMeshSource.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="MCMeshSourceManager.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="MCTextureManager.h">
+      <Filter>MC_Engine\MC_Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="MCScene.h">
+      <Filter>MC_Engine\MC_Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="MCSceneManager.h">
+      <Filter>MC_Engine\MC_Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="MCSceneModule.h">
+      <Filter>MC_Engine\MC_Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="MCGrassCullingModule.h">
+      <Filter>MC_Engine\MC_Scene\SceneModules</Filter>
+    </ClInclude>
+    <ClInclude Include="MC_AssetTests.h">
+      <Filter>MC_Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="MC_FileDialog.h">
+      <Filter>MC_Engine\MC_file</Filter>
+    </ClInclude>
+    <ClInclude Include="Includes\imgui\ImGuizmo.h">
+      <Filter>Core\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md">
@@ -287,9 +382,6 @@
     <Filter Include="99_other">
       <UniqueIdentifier>{62a304f5-9dba-41c2-8c26-6e684669c489}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Scene">
-      <UniqueIdentifier>{f074fe1b-19ef-46f2-8307-b6928e179e0e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="MC_Engine\Pass">
       <UniqueIdentifier>{90b31714-642e-4424-acde-3ea56b1e9b10}</UniqueIdentifier>
     </Filter>
@@ -313,6 +405,33 @@
     </Filter>
     <Filter Include="MC_Engine\BarrierManager">
       <UniqueIdentifier>{15ac8ae3-69f6-40ee-9c06-6550354444e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\SceneSerialization">
+      <UniqueIdentifier>{322019aa-0bb6-4e80-a8ec-7b190a192b5e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\CBFreeList">
+      <UniqueIdentifier>{2a473ccf-8b2f-45be-818c-95d9a6a7bd9e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TesterConsole">
+      <UniqueIdentifier>{b7a46cf7-c1a3-4b12-acff-2ea741305666}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\MC_Asset">
+      <UniqueIdentifier>{5c6790cc-3ccb-4ffc-9cf4-66b8beae1230}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\JsonMigrator">
+      <UniqueIdentifier>{d6a4cfa2-edbe-4d76-b92e-650ac9cd11de}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\MC_Scene">
+      <UniqueIdentifier>{2f26b76f-bca3-45c9-94d0-3aadcb834c22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\MC_Scene\SceneModules">
+      <UniqueIdentifier>{74159c48-08b2-46e4-9f62-15fbca0f3082}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\MC_imgui">
+      <UniqueIdentifier>{9b0a49f4-cca6-4746-af1f-984cdeeb102f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\MC_file">
+      <UniqueIdentifier>{eac4b92b-50b5-4fca-8f48-26e7979e07b3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

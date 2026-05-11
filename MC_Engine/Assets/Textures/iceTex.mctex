@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/ice.dds",
+  "displayName": "iceTex",
+  "handle": "16264365909468438926",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

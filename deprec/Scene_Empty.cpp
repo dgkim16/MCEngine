@@ -20,20 +20,20 @@ void Scene_Empty::Load(MCEngine& engine)
 	UINT boxIndexOffset   = 0;
 	UINT gridIndexOffset  = (UINT)box.Indices32.size();
 
-	SubmeshGeometry boxSubmesh;
+	MCSubmeshGeometry boxSubmesh;
 	boxSubmesh.IndexCount        = (UINT)box.Indices32.size();
 	boxSubmesh.StartIndexLocation = boxIndexOffset;
 	boxSubmesh.BaseVertexLocation = boxVertexOffset;
 	boxSubmesh.CreateBounds(box.Vertices);
 
-	SubmeshGeometry gridSubmesh;
+	MCSubmeshGeometry gridSubmesh;
 	gridSubmesh.IndexCount        = (UINT)grid.Indices32.size();
 	gridSubmesh.StartIndexLocation = gridIndexOffset;
 	gridSubmesh.BaseVertexLocation = gridVertexOffset;
 	gridSubmesh.CreateBounds(grid.Vertices);
 
 	auto totalCount = box.Vertices.size() + grid.Vertices.size();
-	std::vector<Vertex> vertices(totalCount);
+	std::vector<MCVertex> vertices(totalCount);
 	UINT k = 0;
 	for (size_t i = 0; i < box.Vertices.size();  ++i, ++k) { vertices[k].Pos = box.Vertices[i].Position;  vertices[k].Normal = box.Vertices[i].Normal;  vertices[k].TexC = box.Vertices[i].TexC; }
 	for (size_t i = 0; i < grid.Vertices.size(); ++i, ++k) { vertices[k].Pos = grid.Vertices[i].Position; vertices[k].Normal = grid.Vertices[i].Normal; vertices[k].TexC = grid.Vertices[i].TexC; }
@@ -42,14 +42,14 @@ void Scene_Empty::Load(MCEngine& engine)
 	indices.insert(indices.end(), std::begin(box.GetIndices16()),  std::end(box.GetIndices16()));
 	indices.insert(indices.end(), std::begin(grid.GetIndices16()), std::end(grid.GetIndices16()));
 
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(MCVertex);
 	const UINT ibByteSize = (UINT)indices.size()  * sizeof(std::uint16_t);
 
-	auto geo = std::make_unique<MeshGeometry>();
+	auto geo = std::make_unique<MCMeshGeometry>();
 	geo->Name = "emptyGeo";
 	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(device, cmdList, vertices.data(), vbByteSize, geo->VertexBufferUploader);
 	geo->IndexBufferGPU  = d3dUtil::CreateDefaultBuffer(device, cmdList, indices.data(),  ibByteSize, geo->IndexBufferUploader);
-	geo->VertexByteStride    = sizeof(Vertex);
+	geo->VertexByteStride    = sizeof(MCVertex);
 	geo->VertexBufferByteSize = vbByteSize;
 	geo->IndexFormat          = DXGI_FORMAT_R16_UINT;
 	geo->IndexBufferByteSize  = ibByteSize;
@@ -59,26 +59,24 @@ void Scene_Empty::Load(MCEngine& engine)
 
 	// --- Materials (2: one for box, one for grid) ---
 	{
-		auto mat = std::make_unique<Material>();
-		mat->Name        = "emptyBox";
-		mat->textureName = "default";
-		mat->MatCBIndex  = 0;
+		auto mat = std::make_unique<MCMaterial>();
+		mat->Name          = "emptyBox";
+		mat->textureHandle = HashAssetIdentity<AssetKind::Texture>("default");
+		mat->MatCBIndex    = 0;
 		{ auto* t = engine.GetTexture("default"); mat->DiffuseSrvHeapIndex = t->SRVs.empty() ? 0 : t->SRVs[0].offset; }
-		mat->FresnelR0   = XMFLOAT3(0.05f, 0.05f, 0.05f);
-		mat->Roughness   = 0.3f;
-		mat->renderLevel = 0;
+		mat->FresnelR0     = XMFLOAT3(0.05f, 0.05f, 0.05f);
+		mat->Roughness     = 0.3f;
 		mat->NumFramesDirty = gNumFrameResources;
 		materials["emptyBox"] = std::move(mat);
 	}
 	{
-		auto mat = std::make_unique<Material>();
-		mat->Name        = "emptyGrid";
-		mat->textureName = "gridTex";
-		mat->MatCBIndex  = 1;
+		auto mat = std::make_unique<MCMaterial>();
+		mat->Name          = "emptyGrid";
+		mat->textureHandle = HashAssetIdentity<AssetKind::Texture>("gridTex");
+		mat->MatCBIndex    = 1;
 		{ auto* t = engine.GetTexture("gridTex"); mat->DiffuseSrvHeapIndex = t->SRVs.empty() ? 0 : t->SRVs[0].offset; }
-		mat->FresnelR0   = XMFLOAT3(0.02f, 0.02f, 0.02f);
-		mat->Roughness   = 0.8f;
-		mat->renderLevel = 0;
+		mat->FresnelR0     = XMFLOAT3(0.02f, 0.02f, 0.02f);
+		mat->Roughness     = 0.8f;
 		mat->NumFramesDirty = gNumFrameResources;
 		materials["emptyGrid"] = std::move(mat);
 	}
@@ -92,6 +90,8 @@ void Scene_Empty::Load(MCEngine& engine)
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 1.0f, 0.0f));
 	boxRitem->ObjCBIndex = objCBIndex++;
 	boxRitem->Name = "emptyBox";
+	boxRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("emptyGeo");
+	boxRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("emptyBox");
 	boxRitem->Geo  = geometries["emptyGeo"].get();
 	boxRitem->Mat  = materials["emptyBox"].get();
 	boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -107,6 +107,8 @@ void Scene_Empty::Load(MCEngine& engine)
 	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
 	gridRitem->ObjCBIndex = objCBIndex++;
 	gridRitem->Name = "emptyGrid";
+	gridRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("emptyGeo");
+	gridRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("emptyGrid");
 	gridRitem->Geo  = geometries["emptyGeo"].get();
 	gridRitem->Mat  = materials["emptyGrid"].get();
 	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;

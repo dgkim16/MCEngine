@@ -1,8 +1,8 @@
 #pragma once
-#include "Scene.h"
+#include "MCScene.h"
 
 // Minimal scene: a flat grid and a box, used to demonstrate scene switching.
-class Scene_Empty : public Scene
+class Scene_Empty : public MCScene
 {
 public:
 	Scene_Empty() { name = "Empty"; }

@@ -38,7 +38,9 @@ public:
 		return 1.0f - (1.0f - t) * (1.0f - t); }
 	static DirectX::XMMATRIX InverseTranspose(DirectX::CXMMATRIX M);
 	static DirectX::XMMATRIX LerpMatrix(DirectX::XMMATRIX& A, DirectX::XMMATRIX& B, float& t);
-
+	static DirectX::XMMATRIX ComposeWorldMatrix(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT4& rot, const DirectX::XMFLOAT3& scale);
+	static DirectX::XMFLOAT3 QuatToEulerDegrees(const DirectX::XMFLOAT4& Q);
+	static DirectX::XMFLOAT4 EulerDegreesToQuat(const DirectX::XMFLOAT3& E);
 	static const float Infinity;
 	static const float Pi;
 

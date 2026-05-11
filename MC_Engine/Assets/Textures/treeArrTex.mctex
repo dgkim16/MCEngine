@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/treeArray2.dds",
+  "displayName": "treeArrTex",
+  "handle": "12186344530809228575",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

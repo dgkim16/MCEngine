@@ -2,6 +2,7 @@
 #include "MCEngine.h"
 #include "Camera.h"
 
+class MCScene;
 class MC_Picker {
 public:
 	MC_Picker(const MC_Picker& rhs) = delete;
@@ -10,7 +11,9 @@ public:
 		static MC_Picker singleton(engine);
 		return singleton;
 	}
-	RenderItem& PickRenderItem(XMFLOAT2 xy, std::vector<std::unique_ptr<RenderItem>>& mAllRitems);
+	// Returns the index of the picked render item in scene.allRitems, or -1 on miss.
+	// Sentinel matches MCEngine::mSelectedItemIndex's convention.
+	int PickRenderItemOnScreen(XMFLOAT2 xy, MCScene& scene);
 	
 private:
 	explicit MC_Picker(MCEngine& engine)

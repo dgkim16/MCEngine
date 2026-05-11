@@ -98,26 +98,26 @@ public:
 	// Singleton instance itself stays alive until program exit; this just empties its ComPtrs.
 	void Shutdown();
 
-	void CreateCbv( MCBuffer& buffer, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
+	void CreateCbv( MCBufferResource& buffer, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
 
-	void CreateSrv2d( MCTexture& resource, DXGI_FORMAT format, bool isMSAA = false, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
-	void CreateSrvCube( MCTexture& resource, DXGI_FORMAT format, bool isMSAA = false, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
-	void CreateSrvBuffer( MCBuffer& buffer, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
+	void CreateSrv2d( MCTextureResource& resource, DXGI_FORMAT format, bool isMSAA = false, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
+	void CreateSrvCube( MCTextureResource& resource, DXGI_FORMAT format, bool isMSAA = false, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
+	void CreateSrvBuffer( MCBufferResource& buffer, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
 
-	void CreateUav2d( MCTexture& resource, DXGI_FORMAT format, UINT mipSlice = 0, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
-	void CreateUavBuffer( MCBuffer& resource, ID3D12Resource* counterResource = nullptr, UINT64 counterOffset = 0, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
+	void CreateUav2d( MCTextureResource& resource, DXGI_FORMAT format, UINT mipSlice = 0, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
+	void CreateUavBuffer( MCBufferResource& resource, ID3D12Resource* counterResource = nullptr, UINT64 counterOffset = 0, MC_VIEW_TIER tier = MC_VIEW_TIER::MC_VIEW_TIER_STATIC);
 
 	// RTV/DSV are CPU-only (not shader-visible) and never tiered; no copy step.
-	void CreateRtv2d( MCTexture& resource, DXGI_FORMAT format, bool isMSAA = false, UINT mipSlice = 0);
-	void CreateDsv( MCTexture& resource, D3D12_DSV_FLAGS flags, DXGI_FORMAT format, bool isMSAA = false, UINT mipSlice = 0);
+	void CreateRtv2d( MCTextureResource& resource, DXGI_FORMAT format, bool isMSAA = false, UINT mipSlice = 0);
+	void CreateDsv( MCTextureResource& resource, D3D12_DSV_FLAGS flags, DXGI_FORMAT format, bool isMSAA = false, UINT mipSlice = 0);
 
 	void QueueRemovalFromSet(int idx, DHInfo& map);
 	void QueueRemovalFromSet_CbvSrvUav(DescHeapHandle h);   // translates global->local via h.tier
 	void QueueRemovalFromSet_Rtv(DescHeapHandle h) { return QueueRemovalFromSet(h.offset, mRtv); }
 	void QueueRemovalFromSet_Dsv(DescHeapHandle h) { return QueueRemovalFromSet(h.offset, mDsv); }
 
-	void QueueRemoval_Texture(MCTexture& resource);
-	void QueueRemoval_Buffer(MCBuffer& resource);
+	void QueueRemoval_Texture(MCTextureResource& resource);
+	void QueueRemoval_Buffer(MCBufferResource& resource);
 
 	// read-only accessors (used by ImGui UI)
 	const TierCSU& GetCSU() const { return mCSU; }

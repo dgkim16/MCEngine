@@ -1,10 +1,11 @@
 #include "MCEngine.h"
 #include "DescHeapManager.h"
-#include "Scene_grass.h"
+#include "MCGrassCullingModule.h"
+#include "MCScene.h"
 #include <pix3.h>
 
 void MCEngine::ForwardPass(const GameTimer& gt) {
-
+	auto scene = Scenes().GetActive();
 	// Flush any dirty tier staging writes into the shader-visible combined heap
 	// before any draw references bindless indices.
 	DescHeapManager::Get().CommitToShaderVisible();
@@ -24,32 +25,32 @@ void MCEngine::ForwardPass(const GameTimer& gt) {
 	mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["opaque_MSAA"].Get() : mPSOs["opaque"].Get());
 
 	// PrintRenderItemInLayers();
-	if (mRitemLayer[(int)RenderLayer::Opaque].size() > 0) {
+	if (scene->layers[(int)RenderLayer::Opaque].size() > 0) {
 		if (mIsWireframe)
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["opaque_wireframe_MSAA"].Get() : mPSOs["opaque_wireframe"].Get());
 		else
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["opaque_MSAA"].Get() : mPSOs["opaque"].Get());
-		DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque],"opaque Pass");
+		DrawRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::Opaque],"opaque Pass");
 	}
 
-	if (mRitemLayer[(int)RenderLayer::OpaqueInstanced].size() > 0) {
+	if (scene->layers[(int)RenderLayer::OpaqueInstanced].size() > 0) {
 		if(mIsWireframe)
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["opaque_instanced_tess_wireframe_MSAA"].Get() : mPSOs["opaque_instanced_tess_wireframe"].Get());
 		else
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["opaque_instanced_tess_MSAA"].Get() : mPSOs["opaque_instanced_tess"].Get());
-		DrawInstanceRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::OpaqueInstanced],false, "opaque Instanced Pass");
+		DrawInstanceRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::OpaqueInstanced],false, "opaque Instanced Pass");
 	}
 
-	if (mRitemLayer[(int)RenderLayer::GrassInstanced].size() > 0) {
+	if (scene->layers[(int)RenderLayer::GrassInstanced].size() > 0) {
 		if (mIsWireframe)
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["grass_instanced_wireframe_MSAA"].Get() : mPSOs["grass_instanced_wireframe"].Get());
 		else
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["grass_instanced_MSAA"].Get() : mPSOs["grass_instanced"].Get());
-
-		if (mGrassScene && mGrassScene->useGpuCulling) {
+		auto* gc = Scenes().GetActive()->GetModule<MCGrassCullingModule>();
+		if (gc && gc->useGpuCulling) {
 			//! GPU culling path: instances already compacted into mGrassVisibleBuffer by GrassCullDispatch
 			PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0, 200, 100), "Grass Instanced Pass (GPU)");
-			for (auto& ri : mRitemLayer[(int)RenderLayer::GrassInstanced]) {
+			for (auto& ri : scene->layers[(int)RenderLayer::GrassInstanced]) {
 				auto vbv = ri->Geo->VertexBufferView();
 				auto ibv = ri->Geo->IndexBufferView();
 				mCommandList->IASetVertexBuffers(0, 1, &vbv);
@@ -63,60 +64,60 @@ void MCEngine::ForwardPass(const GameTimer& gt) {
 				mCommandList->SetGraphicsRootConstantBufferView(0, handle);
 
 				mCommandList->SetGraphicsRootShaderResourceView(3,
-					mGrassScene->mGrassVisibleBuffer.mResource->GetGPUVirtualAddress());
+					gc->mGrassVisibleBuffer.mResource->GetGPUVirtualAddress());
 				mCommandList->ExecuteIndirect(mGrassCommandSignature.Get(), 1,
-					mGrassScene->mGrassIndirectArgsBuffer.mResource.Get(), 0, nullptr, 0);
+					gc->mGrassIndirectArgsBuffer.mResource.Get(), 0, nullptr, 0);
 			}
 			PIXEndEvent(mCommandList.Get());
 		} else {
 			//! CPU culling path: InstanceCB was populated by UpdateInstanceData
-			DrawInstanceRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::GrassInstanced],true, "Grass Instanced Pass (CPU)");
+			DrawInstanceRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::GrassInstanced],true, "Grass Instanced Pass (CPU)");
 		}
 	}
 	
 
-	if (mRitemLayer[(int)RenderLayer::AlphaTested].size() > 0) {
+	if (scene->layers[(int)RenderLayer::AlphaTested].size() > 0) {
 		mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["alphaTested_MSAA"].Get() : mPSOs["alphaTested"].Get());
-		DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested], "Alpha Tested Pass");
+		DrawRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::AlphaTested], "Alpha Tested Pass");
 	}
 
-	if (mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites].size() > 0) {
+	if (scene->layers[(int)RenderLayer::AlphaTestedTreeSprites].size() > 0) {
 		if (mIsWireframe)
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["treeSprites_wireframe_MSAA"].Get() : mPSOs["treeSprites_wireframe"].Get());
 		else
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["treeSprites_MSAA"].Get() : mPSOs["treeSprites"].Get());
-		DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites], "treeSprites Pass");
+		DrawRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::AlphaTestedTreeSprites], "treeSprites Pass");
 	}
 
 	// Mark the visible mirror pixels in the stencil buffer with the value 1
 	mCommandList->OMSetStencilRef(1);
 	mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["markStencilMirrors_MSAA"].Get() : mPSOs["markStencilMirrors"].Get());
-	if (mRitemLayer[(int)RenderLayer::Mirrors].size() > 0) {
-		DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Mirrors], "Mirrors Pass");
+	if (scene->layers[(int)RenderLayer::Mirrors].size() > 0) {
+		DrawRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::Mirrors], "Mirrors Pass");
 	}
 	// UINT passCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PerPassCB));
 	// mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress() + 1 * passCBByteSize);
 	// currently they are NOT being reflected, so pass values of view and projection matrices are the same
-	if (mRitemLayer[(int)RenderLayer::Reflected].size() > 0) {
+	if (scene->layers[(int)RenderLayer::Reflected].size() > 0) {
 		// Draw the reflection into the mirror only (only for pixels where the stencil buffer is 1).
 		// Note that we must supply a different per-pass constant buffer--one with the lights reflected.			
 		if (mIsWireframe)
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["drawStencilReflections_wireframe_MSAA"].Get() : mPSOs["drawStencilReflections_wireframe"].Get());
 		else
 			mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["drawStencilReflections_MSAA"].Get() : mPSOs["drawStencilReflections"].Get());
-		DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Reflected], "Reflected Pass");
+		DrawRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::Reflected], "Reflected Pass");
 	}
 	// Restore main pass constants and stencil ref.
 	// mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
 	mCommandList->OMSetStencilRef(0);
 
-	if (mRitemLayer[(int)RenderLayer::Transparent].size() > 0) {
+	if (scene->layers[(int)RenderLayer::Transparent].size() > 0) {
 		mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["transparent_MSAA"].Get() : mPSOs["transparent"].Get());
-		DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent], "Transparent Pass");
+		DrawRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::Transparent], "Transparent Pass");
 	}
-	if (mRitemLayer[(int)RenderLayer::Shadow].size() > 0) {
+	if (scene->layers[(int)RenderLayer::Shadow].size() > 0) {
 		mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["shadow_MSAA"].Get() : mPSOs["shadow"].Get());
-		DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Shadow],"Shadow Pass");
+		DrawRenderItems(mCommandList.Get(), scene->layers[(int)RenderLayer::Shadow],"Shadow Pass");
 	}
 
 	// ---- Debug visualization (bounding boxes + frustum) ----
@@ -158,7 +159,6 @@ void MCEngine::ForwardPass(const GameTimer& gt) {
 			mCommandList->SetGraphicsRootShaderResourceView(2, matCB->GetGPUVirtualAddress());
 		}
 	}
-
 }
 
 void MCEngine::TessellationExample(const GameTimer& gt) {

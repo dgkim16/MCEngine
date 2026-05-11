@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/WireFence.dds",
+  "displayName": "wirefenceTex",
+  "handle": "1680698060428717261",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

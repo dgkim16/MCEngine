@@ -8,7 +8,7 @@ using namespace DirectX;
 
 // ---------------------------------------------------------------------------
 // Material → texture mapping for Scene_Ch7 
-// MOVED TO Scene.h
+// MOVED TO MCScene.h
 // ---------------------------------------------------------------------------
 
 /*
@@ -37,10 +37,17 @@ void Scene_Ch7::Load(MCEngine& engine)
 
 void Scene_Ch7::Activate(MCEngine& engine)
 {
+	RebindCachedPointers(engine);
 	// Camera / lighting state is left at engine defaults.
 	engine.SetModelRitem(mModelRitem);
 	engine.SetReflectedModelRitem(mReflectedModelRitem);
 	engine.SetTessellatedRitem(mTessellatedRitem);
+}
+
+void Scene_Ch7::RebindCachedPointers(MCEngine& /*engine*/) {
+	if (auto it = nameToRitem.find("ch7_model");           it != nameToRitem.end()) mModelRitem = it->second; else mModelRitem = nullptr;
+	if (auto it = nameToRitem.find("ch7_model_reflected"); it != nameToRitem.end()) mReflectedModelRitem = it->second; else mReflectedModelRitem = nullptr;
+	if (auto it = nameToRitem.find("ch7_quad");            it != nameToRitem.end()) mTessellatedRitem = it->second; else mTessellatedRitem = nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -55,7 +62,7 @@ void Scene_Ch7::BuildGeometry(MCEngine& engine)
 	GeometryGenerator::MeshData sphere   = geoGen.CreateSphere(0.5f, 20, 20);
 	GeometryGenerator::MeshData cylinder = geoGen.CreateCylinder(0.5f, 0.3f, 3.0f, 20, 20);
 
-	std::vector<Vertex>   loaded_vertices;
+	std::vector<MCVertex>   loaded_vertices;
 	std::vector<uint32_t> loaded_indices;
 	const std::string filename = "Assets/Models/다람디.obj";
 	if (!ModelLoader::LoadObjToVertexIndexBuffers(filename, loaded_vertices, loaded_indices))
@@ -73,37 +80,37 @@ void Scene_Ch7::BuildGeometry(MCEngine& engine)
 	UINT sphereIndexOffset   = gridIndexOffset  + (UINT)grid.Indices32.size();
 	UINT cylinderIndexOffset = sphereIndexOffset + (UINT)sphere.Indices32.size();
 
-	SubmeshGeometry boxSubmesh;
+	MCSubmeshGeometry boxSubmesh;
 	boxSubmesh.IndexCount       = (UINT)box.Indices32.size();
 	boxSubmesh.StartIndexLocation = boxIndexOffset;
 	boxSubmesh.BaseVertexLocation = boxVertexOffset;
 	boxSubmesh.CreateBounds(box.Vertices);
 
-	SubmeshGeometry gridSubmesh;
+	MCSubmeshGeometry gridSubmesh;
 	gridSubmesh.IndexCount        = (UINT)grid.Indices32.size();
 	gridSubmesh.StartIndexLocation = gridIndexOffset;
 	gridSubmesh.BaseVertexLocation = gridVertexOffset;
 	gridSubmesh.CreateBounds(grid.Vertices);
 
-	SubmeshGeometry sphereSubmesh;
+	MCSubmeshGeometry sphereSubmesh;
 	sphereSubmesh.IndexCount        = (UINT)sphere.Indices32.size();
 	sphereSubmesh.StartIndexLocation = sphereIndexOffset;
 	sphereSubmesh.BaseVertexLocation = sphereVertexOffset;
 	sphereSubmesh.CreateBounds(sphere.Vertices);
 
-	SubmeshGeometry cylinderSubmesh;
+	MCSubmeshGeometry cylinderSubmesh;
 	cylinderSubmesh.IndexCount        = (UINT)cylinder.Indices32.size();
 	cylinderSubmesh.StartIndexLocation = cylinderIndexOffset;
 	cylinderSubmesh.BaseVertexLocation = cylinderVertexOffset;
 	cylinderSubmesh.CreateBounds(cylinder.Vertices);
 
-	SubmeshGeometry modelSubmesh;
+	MCSubmeshGeometry modelSubmesh;
 	modelSubmesh.IndexCount        = (UINT)loaded_indices.size();
 	modelSubmesh.StartIndexLocation = cylinderIndexOffset + (UINT)cylinder.Indices32.size();
 	modelSubmesh.BaseVertexLocation = cylinderVertexOffset + (UINT)cylinder.Vertices.size();
 	modelSubmesh.CreateBounds(loaded_vertices);
 
-	SubmeshGeometry quadSubmesh;
+	MCSubmeshGeometry quadSubmesh;
 	quadSubmesh.IndexCount        = (UINT)quad.Indices32.size();
 	quadSubmesh.StartIndexLocation = modelSubmesh.StartIndexLocation + (UINT)loaded_indices.size();
 	quadSubmesh.BaseVertexLocation = modelSubmesh.BaseVertexLocation + (UINT)loaded_vertices.size();
@@ -113,7 +120,7 @@ void Scene_Ch7::BuildGeometry(MCEngine& engine)
 		box.Vertices.size() + grid.Vertices.size() +
 		sphere.Vertices.size() + cylinder.Vertices.size() +
 		loaded_vertices.size() + quad.Vertices.size();
-	std::vector<Vertex> vertices(totalVertexCount);
+	std::vector<MCVertex> vertices(totalVertexCount);
 
 	UINT k = 0;
 	for (size_t i = 0; i < box.Vertices.size();      ++i, ++k) { vertices[k].Pos = box.Vertices[i].Position;      vertices[k].Normal = box.Vertices[i].Normal;      vertices[k].TexC = box.Vertices[i].TexC; }
@@ -134,14 +141,14 @@ void Scene_Ch7::BuildGeometry(MCEngine& engine)
 	}
 	indices.insert(indices.end(), std::begin(quad.GetIndices16()), std::end(quad.GetIndices16()));
 
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(MCVertex);
 	const UINT ibByteSize = (UINT)indices.size()  * sizeof(std::uint16_t);
 
-	auto geo = std::make_unique<MeshGeometry>();
-	geo->Name = "shapeGeo";
+	auto geo = std::make_unique<MCMeshGeometry>();
+	geo->Name = "Ch7_shapeGeo";
 	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(device, cmdList, vertices.data(), vbByteSize, geo->VertexBufferUploader);
 	geo->IndexBufferGPU  = d3dUtil::CreateDefaultBuffer(device, cmdList, indices.data(),  ibByteSize, geo->IndexBufferUploader);
-	geo->VertexByteStride   = sizeof(Vertex);
+	geo->VertexByteStride   = sizeof(MCVertex);
 	geo->VertexBufferByteSize = vbByteSize;
 	geo->IndexFormat        = DXGI_FORMAT_R16_UINT;
 	geo->IndexBufferByteSize = ibByteSize;
@@ -151,7 +158,11 @@ void Scene_Ch7::BuildGeometry(MCEngine& engine)
 	geo->DrawArgs["cylinder"] = cylinderSubmesh;
 	geo->DrawArgs["model"]    = modelSubmesh;
 	geo->DrawArgs["quad"]     = quadSubmesh;
-	geometries[geo->Name] = std::move(geo);
+
+	MCMeshSource src;
+	src.kind     = MCMeshSource::Kind::External;
+	src.geometry = std::move(geo);
+	engine.Meshes().Register("Ch7_shapeGeo", std::move(src));
 }
 
 // ---------------------------------------------------------------------------
@@ -178,8 +189,8 @@ void Scene_Ch7::BuildSpriteGeometry(MCEngine& engine)
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(TreeSpriteVertex);
 	const UINT ibByteSize = (UINT)indices.size()  * sizeof(std::uint16_t);
 
-	auto geo = std::make_unique<MeshGeometry>();
-	geo->Name = "treeSpritesGeo";
+	auto geo = std::make_unique<MCMeshGeometry>();
+	geo->Name = "Ch7_treeSpritesGeo";
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
 	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
@@ -190,33 +201,24 @@ void Scene_Ch7::BuildSpriteGeometry(MCEngine& engine)
 	geo->VertexBufferByteSize = vbByteSize;
 	geo->IndexFormat          = DXGI_FORMAT_R16_UINT;
 	geo->IndexBufferByteSize  = ibByteSize;
-	SubmeshGeometry submesh;
+	MCSubmeshGeometry submesh;
 	submesh.IndexCount        = (UINT)indices.size();
 	submesh.StartIndexLocation = 0;
 	submesh.BaseVertexLocation = 0;
 	geo->DrawArgs["points"] = submesh;
-	geometries["treeSpritesGeo"] = std::move(geo);
+
+	MCMeshSource src;
+	src.kind     = MCMeshSource::Kind::External;
+	src.geometry = std::move(geo);
+	engine.Meshes().Register("Ch7_treeSpritesGeo", std::move(src));
 }
 
 // ---------------------------------------------------------------------------
-void Scene_Ch7::BuildMaterials(MCEngine& engine)
+void Scene_Ch7::BuildMaterials(MCEngine& /*engine*/)
 {
-	int i = 0;
-	for (const auto& mp : s_matProps) {
-		auto mat = std::make_unique<Material>();
-		mat->Name         = mp.matName;
-		mat->textureName  = mp.textureName;  // stored for FixupMaterialDiffuseIndices()
-		mat->MatCBIndex   = i++;
-		{ auto* t = engine.GetTexture(mp.textureName); mat->DiffuseSrvHeapIndex = t->SRVs.empty() ? 0 : t->SRVs[0].offset; } // may be 0 until fixup
-		mat->FresnelR0    = XMFLOAT3(0.05f, 0.05f, 0.05f);
-		mat->Roughness    = 0.2f;
-		mat->renderLevel  = mp.renderLevel;
-		mat->NumFramesDirty = gNumFrameResources;
-		materials[mat->Name] = std::move(mat);
-	}
-	int q = 0;
-	for (auto& e : materials)
-		materialIndexTracker[q++] = e.first;
+	// Materials are loaded from Assets/materials/*.mcmat at engine init via
+	// MCMaterialManager::LoadDirectory. No per-scene BuildMaterials work needed.
+	// Day 8 deletes this scene subclass entirely; today it's a stub.
 }
 
 // ---------------------------------------------------------------------------
@@ -225,120 +227,144 @@ void Scene_Ch7::BuildRenderItems(MCEngine& engine)
 	UINT objCBIndex = 0;
 
 	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+	boxRitem->Position = XMFLOAT3(0.0f, 0.5f, 0.0f);
+	boxRitem->Scale    = XMFLOAT3(2.0f, 2.0f, 2.0f);
+	// XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
 	boxRitem->ObjCBIndex = objCBIndex++;
-	boxRitem->Name = "box";
-	boxRitem->Geo  = geometries["shapeGeo"].get();
-	boxRitem->Mat  = materials["woodCrate"].get();
+	boxRitem->Name = "ch7_box";
+	boxRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+	boxRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("woodCrate");
+	boxRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+	boxRitem->Mat  = engine.Materials().Get(boxRitem->materialHandle);
 	boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	boxRitem->IndexCount        = boxRitem->Geo->DrawArgs["box"].IndexCount;
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
 	boxRitem->Bounds = boxRitem->Geo->DrawArgs["box"].Bounds;
-	layers[(int)RenderLayer::Opaque].insert(boxRitem.get());
-	allRitems.push_back(std::move(boxRitem));
+	boxRitem->SubmeshName = "box";
+	AddRenderItem(std::move(boxRitem), RenderLayer::Opaque);
 
 	auto modelRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&modelRitem->World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 2.0f, 0.0f));
+	modelRitem->Position = XMFLOAT3(0.0f, 2.0f, 0.0f);
+	// XMStoreFloat4x4(&modelRitem->World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 2.0f, 0.0f));
 	modelRitem->ObjCBIndex = objCBIndex++;
-	modelRitem->Name = "model";
-	modelRitem->Geo  = geometries["shapeGeo"].get();
-	modelRitem->Mat  = materials["model"].get();
+	modelRitem->Name = "ch7_model";
+	modelRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+	modelRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("model");
+	modelRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+	modelRitem->Mat  = engine.Materials().Get(modelRitem->materialHandle);
 	modelRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	modelRitem->IndexCount        = modelRitem->Geo->DrawArgs["model"].IndexCount;
 	modelRitem->StartIndexLocation = modelRitem->Geo->DrawArgs["model"].StartIndexLocation;
 	modelRitem->BaseVertexLocation = modelRitem->Geo->DrawArgs["model"].BaseVertexLocation;
 	modelRitem->Bounds = modelRitem->Geo->DrawArgs["model"].Bounds;
-	layers[(int)RenderLayer::Opaque].insert(modelRitem.get());
-	engine.SetModelRitem(modelRitem.get());
-	mModelRitem = modelRitem.get();
+	modelRitem->SubmeshName = "model";
 
-	auto reflectedModelItem = std::make_unique<RenderItem>();
-	*reflectedModelItem = *modelRitem;
-	reflectedModelItem->ObjCBIndex = objCBIndex++;
-	reflectedModelItem->Mat = materials["model_ref"].get();
-	XMStoreFloat4x4(&reflectedModelItem->World, XMMatrixTranslation(.0f, 2.0f, -10.0f));
-	engine.SetReflectedModelRitem(reflectedModelItem.get());
-	mReflectedModelRitem = reflectedModelItem.get();
-	layers[(int)RenderLayer::Reflected].insert(reflectedModelItem.get());
+	auto stenciledModelItem = std::make_unique<RenderItem>();
+	*stenciledModelItem = *modelRitem;
+	stenciledModelItem->Name = "ch7_model_reflected";
+	stenciledModelItem->ObjCBIndex = objCBIndex++;
+	stenciledModelItem->materialHandle = HashAssetIdentity<AssetKind::Material>("model_ref");
+	stenciledModelItem->Mat = engine.Materials().Get(stenciledModelItem->materialHandle);
+	stenciledModelItem->Position = XMFLOAT3(0.0f, 2.0f, -10.0f);
+	// XMStoreFloat4x4(&stenciledModelItem->World, XMMatrixTranslation(.0f, 2.0f, -10.0f));
 
-	allRitems.push_back(std::move(modelRitem));
-	allRitems.push_back(std::move(reflectedModelItem));
+	mModelRitem = AddRenderItem(std::move(modelRitem), RenderLayer::Opaque);
+	engine.SetModelRitem(mModelRitem);
+
+	mReflectedModelRitem = AddRenderItem(std::move(stenciledModelItem), RenderLayer::Reflected);
+	engine.SetReflectedModelRitem(mReflectedModelRitem);
 
 	auto gridRitem = std::make_unique<RenderItem>();
-	gridRitem->World = MathHelper::Identity4x4();
+	// gridRitem->World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
 	gridRitem->ObjCBIndex = objCBIndex++;
-	gridRitem->Name = "grid";
-	gridRitem->Geo  = geometries["shapeGeo"].get();
-	gridRitem->Mat  = materials["gridFloor"].get();
+	gridRitem->Name = "ch7_grid";
+	gridRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+	gridRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("gridFloor");
+	gridRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+	gridRitem->Mat  = engine.Materials().Get(gridRitem->materialHandle);
 	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	gridRitem->IndexCount        = gridRitem->Geo->DrawArgs["grid"].IndexCount;
 	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
 	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 	gridRitem->Bounds = gridRitem->Geo->DrawArgs["grid"].Bounds;
-	layers[(int)RenderLayer::Opaque].insert(gridRitem.get());
-	allRitems.push_back(std::move(gridRitem));
+	gridRitem->SubmeshName = "grid";
+	AddRenderItem(std::move(gridRitem), RenderLayer::Opaque);
 
 	auto quadRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&quadRitem->World, XMMatrixRotationX(MathHelper::Pi / 2.0f) * XMMatrixTranslation(0.0f, 3.0f, 0.0f));
+	quadRitem->Position = XMFLOAT3(0.0f, 3.0f, 0.0f);
+	XMStoreFloat4(&quadRitem->Rotation, XMQuaternionRotationRollPitchYaw(MathHelper::Pi / 2.0f, 0.0f, 0.0f));
+	// XMStoreFloat4x4(&quadRitem->World, XMMatrixRotationX(MathHelper::Pi / 2.0f) * XMMatrixTranslation(0.0f, 3.0f, 0.0f));
 	XMStoreFloat4x4(&quadRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 	quadRitem->ObjCBIndex = objCBIndex++;
-	quadRitem->Name = "quad";
-	quadRitem->Geo  = geometries["shapeGeo"].get();
-	quadRitem->Mat  = materials["tessellation"].get();
+	quadRitem->Name = "ch7_quad";
+	quadRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+	quadRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("tessellation");
+	quadRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+	quadRitem->Mat  = engine.Materials().Get(quadRitem->materialHandle);
 	quadRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;
 	quadRitem->IndexCount        = quadRitem->Geo->DrawArgs["quad"].IndexCount;
 	quadRitem->StartIndexLocation = quadRitem->Geo->DrawArgs["quad"].StartIndexLocation;
 	quadRitem->BaseVertexLocation = quadRitem->Geo->DrawArgs["quad"].BaseVertexLocation;
 	quadRitem->Bounds = quadRitem->Geo->DrawArgs["quad"].Bounds;
-	engine.SetTessellatedRitem(quadRitem.get());
-	mTessellatedRitem = quadRitem.get();
-	layers[(int)RenderLayer::OpaqueTessellated].insert(quadRitem.get());
-	allRitems.push_back(std::move(quadRitem));
+	quadRitem->SubmeshName = "quad";
+	mTessellatedRitem = AddRenderItem(std::move(quadRitem), RenderLayer::OpaqueTessellated);
+	engine.SetTessellatedRitem(mTessellatedRitem);
 
 	auto mirrorRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&mirrorRitem->World, XMMatrixScaling(.5f, 1.0f, .25f) * XMMatrixRotationX(MathHelper::Pi / 2.0f) * XMMatrixTranslation(0.0f, 3.0f, -5.0f));
+	mirrorRitem->Position = XMFLOAT3(0.0f, 3.0f, -5.0f);
+	mirrorRitem->Scale    = XMFLOAT3(0.5f, 1.0f, 0.25f);
+	XMStoreFloat4(&mirrorRitem->Rotation, XMQuaternionRotationRollPitchYaw(MathHelper::Pi / 2.0f, 0.0f, 0.0f));
+	// XMStoreFloat4x4(&mirrorRitem->World, XMMatrixScaling(.5f, 1.0f, .25f) * XMMatrixRotationX(MathHelper::Pi / 2.0f) * XMMatrixTranslation(0.0f, 3.0f, -5.0f));
 	mirrorRitem->ObjCBIndex = objCBIndex++;
-	mirrorRitem->Name = "mirror";
-	mirrorRitem->Geo  = geometries["shapeGeo"].get();
-	mirrorRitem->Mat  = materials["mirror"].get();
+	mirrorRitem->Name = "ch7_mirror";
+	mirrorRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+	mirrorRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("mirror");
+	mirrorRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+	mirrorRitem->Mat  = engine.Materials().Get(mirrorRitem->materialHandle);
 	mirrorRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	mirrorRitem->IndexCount        = mirrorRitem->Geo->DrawArgs["grid"].IndexCount;
 	mirrorRitem->StartIndexLocation = mirrorRitem->Geo->DrawArgs["grid"].StartIndexLocation;
 	mirrorRitem->BaseVertexLocation = mirrorRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 	mirrorRitem->Bounds = mirrorRitem->Geo->DrawArgs["grid"].Bounds;
-	layers[(int)RenderLayer::Mirrors].insert(mirrorRitem.get());
-	layers[(int)RenderLayer::Transparent].insert(mirrorRitem.get());
-	allRitems.push_back(std::move(mirrorRitem));
+	mirrorRitem->SubmeshName = "grid";
+	AddRenderItem(std::move(mirrorRitem), {RenderLayer::Mirrors, RenderLayer::Transparent});
 
 	auto waterRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&waterRitem->World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+	waterRitem->Position = XMFLOAT3(0.0f, 0.5f, 0.0f);
+	// XMStoreFloat4x4(&waterRitem->World, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
 	XMStoreFloat4x4(&waterRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
 	waterRitem->ObjCBIndex = objCBIndex++;
-	waterRitem->Name = "water";
-	waterRitem->Geo  = geometries["shapeGeo"].get();
-	waterRitem->Mat  = materials["water"].get();
+	waterRitem->Name = "ch7_water";
+	waterRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+	waterRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("water");
+	waterRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+	waterRitem->Mat  = engine.Materials().Get(waterRitem->materialHandle);
 	waterRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	waterRitem->IndexCount        = waterRitem->Geo->DrawArgs["grid"].IndexCount;
 	waterRitem->StartIndexLocation = waterRitem->Geo->DrawArgs["grid"].StartIndexLocation;
 	waterRitem->BaseVertexLocation = waterRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 	waterRitem->Bounds = waterRitem->Geo->DrawArgs["grid"].Bounds;
-	layers[(int)RenderLayer::Transparent].insert(waterRitem.get());
-	allRitems.push_back(std::move(waterRitem));
+	waterRitem->SubmeshName = "grid";
+	AddRenderItem(std::move(waterRitem), RenderLayer::Transparent);
 
 	auto treeSpritesRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&treeSpritesRitem->World, XMMatrixScaling(0.1f, .1f, .1f));
+	treeSpritesRitem->Scale = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	// XMStoreFloat4x4(&treeSpritesRitem->World, XMMatrixScaling(0.1f, .1f, .1f));
 	treeSpritesRitem->ObjCBIndex = objCBIndex++;
-	treeSpritesRitem->Mat = materials["treeSprites"].get();
-	treeSpritesRitem->Geo = geometries["treeSpritesGeo"].get();
+	treeSpritesRitem->Name = "ch7_treeSprites";
+	treeSpritesRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_treeSpritesGeo");
+	treeSpritesRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("treeSprites");
+	treeSpritesRitem->Mat = engine.Materials().Get(treeSpritesRitem->materialHandle);
+	treeSpritesRitem->Geo = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_treeSpritesGeo"));
 	treeSpritesRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_POINTLIST;
 	treeSpritesRitem->IndexCount        = treeSpritesRitem->Geo->DrawArgs["points"].IndexCount;
 	treeSpritesRitem->StartIndexLocation = treeSpritesRitem->Geo->DrawArgs["points"].StartIndexLocation;
 	treeSpritesRitem->BaseVertexLocation = treeSpritesRitem->Geo->DrawArgs["points"].BaseVertexLocation;
 	treeSpritesRitem->checkBounds = false;
-	layers[(int)RenderLayer::AlphaTestedTreeSprites].insert(treeSpritesRitem.get());
-	allRitems.push_back(std::move(treeSpritesRitem));
+	treeSpritesRitem->SubmeshName = "points";
+	AddRenderItem(std::move(treeSpritesRitem), RenderLayer::AlphaTestedTreeSprites);
 
 	for (int i = 0; i < 5; ++i) {
 		auto leftCylRitem    = std::make_unique<RenderItem>();
@@ -351,57 +377,70 @@ void Scene_Ch7::BuildRenderItems(MCEngine& engine)
 		XMMATRIX leftSphereWorld  = XMMatrixTranslation(-5.0f, 3.5f, -10.0f + i * 5.0f);
 		XMMATRIX rightSphereWorld = XMMatrixTranslation(+5.0f, 3.5f, -10.0f + i * 5.0f);
 
-		XMStoreFloat4x4(&leftCylRitem->World, leftCylWorld);
+		leftCylRitem->Position    = XMFLOAT3(-5.0f, 1.5f, -10.0f + i * 5.0f);
+		rightCylRitem->Position   = XMFLOAT3(+5.0f, 1.5f, -10.0f + i * 5.0f);
+		leftSphereRitem->Position = XMFLOAT3(-5.0f, 3.5f, -10.0f + i * 5.0f);
+		rightSphereRitem->Position= XMFLOAT3(+5.0f, 3.5f, -10.0f + i * 5.0f);
+
+		// XMStoreFloat4x4(&leftCylRitem->World, leftCylWorld);
 		leftCylRitem->ObjCBIndex = objCBIndex++;
-		leftCylRitem->Name = "leftCylRitem";
-		leftCylRitem->Geo  = geometries["shapeGeo"].get();
-		leftCylRitem->Mat  = materials["woodCrate"].get();
+		leftCylRitem->Name = "ch7_leftCyl_" + std::to_string(i);
+		leftCylRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+		leftCylRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("woodCrate");
+		leftCylRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+		leftCylRitem->Mat  = engine.Materials().Get(leftCylRitem->materialHandle);
 		leftCylRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		leftCylRitem->IndexCount        = leftCylRitem->Geo->DrawArgs["cylinder"].IndexCount;
 		leftCylRitem->StartIndexLocation = leftCylRitem->Geo->DrawArgs["cylinder"].StartIndexLocation;
 		leftCylRitem->BaseVertexLocation = leftCylRitem->Geo->DrawArgs["cylinder"].BaseVertexLocation;
 		leftCylRitem->Bounds = leftCylRitem->Geo->DrawArgs["cylinder"].Bounds;
+		leftCylRitem->SubmeshName = "cylinder";
 
-		XMStoreFloat4x4(&rightCylRitem->World, rightCylWorld);
+		// XMStoreFloat4x4(&rightCylRitem->World, rightCylWorld);
 		rightCylRitem->ObjCBIndex = objCBIndex++;
-		rightCylRitem->Name = "rightCylRitem";
-		rightCylRitem->Geo  = geometries["shapeGeo"].get();
-		rightCylRitem->Mat  = materials["woodCrate"].get();
+		rightCylRitem->Name = "ch7_rightCyl_" + std::to_string(i);
+		rightCylRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+		rightCylRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("woodCrate");
+		rightCylRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+		rightCylRitem->Mat  = engine.Materials().Get(rightCylRitem->materialHandle);
 		rightCylRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		rightCylRitem->IndexCount        = rightCylRitem->Geo->DrawArgs["cylinder"].IndexCount;
 		rightCylRitem->StartIndexLocation = rightCylRitem->Geo->DrawArgs["cylinder"].StartIndexLocation;
 		rightCylRitem->BaseVertexLocation = rightCylRitem->Geo->DrawArgs["cylinder"].BaseVertexLocation;
 		rightCylRitem->Bounds = rightCylRitem->Geo->DrawArgs["cylinder"].Bounds;
+		rightCylRitem->SubmeshName = "cylinder";
 
-		XMStoreFloat4x4(&leftSphereRitem->World, leftSphereWorld);
+		// XMStoreFloat4x4(&leftSphereRitem->World, leftSphereWorld);
 		leftSphereRitem->ObjCBIndex = objCBIndex++;
-		leftSphereRitem->Name = "leftSphereRitem";
-		leftSphereRitem->Geo  = geometries["shapeGeo"].get();
-		leftSphereRitem->Mat  = materials["woodCrate"].get();
+		leftSphereRitem->Name = "ch7_leftSphere_" + std::to_string(i);
+		leftSphereRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+		leftSphereRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("woodCrate");
+		leftSphereRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+		leftSphereRitem->Mat  = engine.Materials().Get(leftSphereRitem->materialHandle);
 		leftSphereRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		leftSphereRitem->IndexCount        = leftSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
 		leftSphereRitem->StartIndexLocation = leftSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
 		leftSphereRitem->BaseVertexLocation = leftSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
 		leftSphereRitem->Bounds = leftSphereRitem->Geo->DrawArgs["sphere"].Bounds;
+		leftSphereRitem->SubmeshName = "sphere";
 
-		XMStoreFloat4x4(&rightSphereRitem->World, rightSphereWorld);
+		// XMStoreFloat4x4(&rightSphereRitem->World, rightSphereWorld);
 		rightSphereRitem->ObjCBIndex = objCBIndex++;
-		rightSphereRitem->Name = "rightSphereRitem";
-		rightSphereRitem->Geo  = geometries["shapeGeo"].get();
-		rightSphereRitem->Mat  = materials["woodCrate"].get();
+		rightSphereRitem->Name = "ch7_rightSphere_" + std::to_string(i);
+		rightSphereRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo");
+		rightSphereRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("woodCrate");
+		rightSphereRitem->Geo  = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("Ch7_shapeGeo"));
+		rightSphereRitem->Mat  = engine.Materials().Get(rightSphereRitem->materialHandle);
 		rightSphereRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		rightSphereRitem->IndexCount        = rightSphereRitem->Geo->DrawArgs["sphere"].IndexCount;
 		rightSphereRitem->StartIndexLocation = rightSphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
 		rightSphereRitem->BaseVertexLocation = rightSphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
 		rightSphereRitem->Bounds = rightSphereRitem->Geo->DrawArgs["sphere"].Bounds;
+		rightSphereRitem->SubmeshName = "sphere";
 
-		layers[(int)RenderLayer::Opaque].insert(leftCylRitem.get());
-		layers[(int)RenderLayer::Opaque].insert(rightCylRitem.get());
-		layers[(int)RenderLayer::Opaque].insert(leftSphereRitem.get());
-		layers[(int)RenderLayer::Opaque].insert(rightSphereRitem.get());
-		allRitems.push_back(std::move(leftCylRitem));
-		allRitems.push_back(std::move(rightCylRitem));
-		allRitems.push_back(std::move(leftSphereRitem));
-		allRitems.push_back(std::move(rightSphereRitem));
+		AddRenderItem(std::move(leftCylRitem), RenderLayer::Opaque);
+		AddRenderItem(std::move(rightCylRitem), RenderLayer::Opaque);
+		AddRenderItem(std::move(leftSphereRitem), RenderLayer::Opaque);
+		AddRenderItem(std::move(rightSphereRitem), RenderLayer::Opaque);
 	}
 }

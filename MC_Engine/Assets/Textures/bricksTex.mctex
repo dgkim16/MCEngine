@@ -1,0 +1,13 @@
+{
+  "assetPath": "Assets/Textures/bricks3.dds",
+  "displayName": "bricksTex",
+  "handle": "10019558643605009788",
+  "kind": "MCTexture",
+  "params": {
+    "addressU": "Wrap",
+    "addressV": "Wrap",
+    "generateMips": true,
+    "sRGB": true
+  },
+  "version": 1
+}

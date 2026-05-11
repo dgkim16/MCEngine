@@ -1,11 +1,12 @@
 #pragma once
-#include "Scene.h"
+#include "MCScene.h"
 
-class Scene_Ch7 : public Scene
+class Scene_Ch7 : public MCScene
 {
 public:
 	Scene_Ch7() { name = "Ch7"; }
 	void Load(MCEngine& engine) override;
+	void RebindCachedPointers(MCEngine& engine) override;
 	void Activate(MCEngine& engine) override;
 
 private:

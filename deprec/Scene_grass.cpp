@@ -13,12 +13,33 @@ void Scene_grass::Load(MCEngine& engine) {
 }
 
 void Scene_grass::Activate(MCEngine& engine) {
-	engine.SetGrassCullingScene(this);
+	RebindCachedPointers(engine);
+
+	// Rebuild CPU-side GrassInstances + InstanceCells if missing (post-reload).
+	// The data is deterministic from public scene params (grassWidth/Height/Count/
+	// Coverage) with a fixed RNG seed (12345), so regeneration matches the GPU
+	// instance buffer uploaded once at initial Load via BuildGpuCullingBuffers.
+	// CPU culling reads GrassInstances; without this rebuild, CPU culling renders
+	// zero blades after TestLoadActiveSceneFromJson destroys the original
+	// RenderItem (whose GrassInstances vector was the only owner of that data).
+	if (mGrassRitem && mGrassRitem->GrassInstances.empty()) {
+		PopulateGrassInstances();
+	}
+
+	// engine.SetGrassCullingScene(this);
+}
+
+void Scene_grass::RebindCachedPointers(MCEngine& /*engine*/) {
+	// Render-item names per Scene_grass::BuildRenderItems:
+	//   "quad" — the grass-instance quad (Scene_grass.cpp:206)
+	//   "grid" — the ground plane        (Scene_grass.cpp:150)
+	if (auto it = nameToRitem.find("quad"); it != nameToRitem.end()) mGrassRitem = it->second; else mGrassRitem = nullptr;
+	if (auto it = nameToRitem.find("grid"); it != nameToRitem.end()) mPlaneRitem = it->second; else mPlaneRitem = nullptr;
 }
 
 void Scene_grass::Deactivate(MCEngine& engine) {
 	OutputDebugString(L"Deactivate Scene_grass\n");
-	engine.SetGrassCullingScene(nullptr);
+	// engine.SetGrassCullingScene(nullptr);
 }
 
 void Scene_grass::Update(MCEngine& engine, float dt) {
@@ -45,7 +66,7 @@ void Scene_grass::BuildGeometry(MCEngine& engine) {
 	// GeometryGenerator::MeshData quad = geoGen.CreateQuad(-0.5f, 1.0f, 1.0f, 1.0f, 0.0f); // single quad for single grass
 	// GeometryGenerator::MeshData quad = geoGen.CreateGrassTriangle(grassWidth, grassHeight);
 	GeometryGenerator::MeshData quad = geoGen.CreateGrassPatch(grassWidth, grassHeight, grassSharpness);
-	std::vector<Vertex>   loaded_vertices;
+	std::vector<MCVertex>   loaded_vertices;
 	std::vector<uint32_t> loaded_indices;
 
 	UINT gridVertexOffset = 0;
@@ -54,20 +75,20 @@ void Scene_grass::BuildGeometry(MCEngine& engine) {
 	UINT gridIndexOffset = 0;
 	UINT quadIndexOffset = (UINT)grid.Indices32.size();
 
-	SubmeshGeometry gridSubmesh;
+	MCSubmeshGeometry gridSubmesh;
 	gridSubmesh.IndexCount = (UINT)grid.Indices32.size();
 	gridSubmesh.StartIndexLocation = gridIndexOffset;
 	gridSubmesh.BaseVertexLocation = gridVertexOffset;
 	gridSubmesh.CreateBounds(grid.Vertices);
 
-	SubmeshGeometry quadSubmesh;
+	MCSubmeshGeometry quadSubmesh;
 	quadSubmesh.IndexCount = (UINT)quad.Indices32.size();
 	quadSubmesh.StartIndexLocation = quadIndexOffset;
 	quadSubmesh.BaseVertexLocation = quadVertexOffset;
 	quadSubmesh.CreateBounds(quad.Vertices);
 
 	auto totalVertexCount = grid.Vertices.size() + quad.Vertices.size();
-	std::vector<Vertex> vertices(totalVertexCount);
+	std::vector<MCVertex> vertices(totalVertexCount);
 	UINT k = 0;
 	for (size_t i = 0; i < grid.Vertices.size(); ++i, ++k) { vertices[k].Pos = grid.Vertices[i].Position;     vertices[k].Normal = grid.Vertices[i].Normal;     vertices[k].TexC = grid.Vertices[i].TexC; }
 	for (size_t i = 0; i < quad.Vertices.size(); ++i, ++k) { vertices[k].Pos = quad.Vertices[i].Position;     vertices[k].Normal = quad.Vertices[i].Normal;     vertices[k].TexC = quad.Vertices[i].TexC; }
@@ -76,48 +97,33 @@ void Scene_grass::BuildGeometry(MCEngine& engine) {
 	indices.insert(indices.end(), std::begin(grid.GetIndices16()), std::end(grid.GetIndices16()));
 	indices.insert(indices.end(), std::begin(quad.GetIndices16()), std::end(quad.GetIndices16()));
 
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(MCVertex);
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
 
-	auto geo = std::make_unique<MeshGeometry>();
-	geo->Name = "shapeGeo";
+	auto geo = std::make_unique<MCMeshGeometry>();
+	geo->Name = "grass_shapeGeo";
 	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(device, cmdList, vertices.data(), vbByteSize, geo->VertexBufferUploader);
 	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(device, cmdList, indices.data(), ibByteSize, geo->IndexBufferUploader);
-	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexByteStride = sizeof(MCVertex);
 	geo->VertexBufferByteSize = vbByteSize;
 	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
 	geo->IndexBufferByteSize = ibByteSize;
 	geo->DrawArgs["grid"] = gridSubmesh;
 	geo->DrawArgs["quad"] = quadSubmesh;
-	geometries[geo->Name] = std::move(geo);
+
+	MCMeshSource src;
+	src.kind     = MCMeshSource::Kind::External;
+	src.geometry = std::move(geo);
+	engine.Meshes().Register("grass_shapeGeo", std::move(src));
 }
 
 void Scene_grass::BuildMaterials(MCEngine& engine) {
-	int i = 0;
-	for (const auto& mp : s_matProps) {
-		auto mat = std::make_unique<Material>();
-		mat->Name = mp.matName;
-		mat->textureName = mp.textureName;  // stored for FixupMaterialDiffuseIndices()
-		mat->MatCBIndex = i++;
-		{
-			auto* t = engine.GetTexture(mp.textureName);
-			mat->DiffuseSrvHeapIndex = t->SRVs.empty() ? 0 : t->SRVs[0].offset; // may be 0 until fixup
-		}
-		mat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
-		mat->Roughness = 0.2f;
-		mat->renderLevel = mp.renderLevel;
-		mat->NumFramesDirty = gNumFrameResources;
-		
-		materials[mat->Name] = std::move(mat);
-	}
-	int q = 0;
-	for (auto& e : materials) {
-		std::cout << e.first << " is at index " << q << std::endl;
-		materialIndexTracker[q++] = e.first;
-	}
-	mGrassMaterial = materials["grass"].get();
-	mPlaneMaterial = materials["grassPlane"].get();
-
+	// Materials are loaded from Assets/materials/*.mcmat at engine init via
+	// MCMaterialManager::LoadDirectory. We only cache the two scene-specific
+	// pointers used by OnImGui's color sliders and the grass culling CB
+	// (MCEngine.cpp's GrassCullDispatch reads gs->mGrassMaterial->MatCBIndex).
+	mGrassMaterial = engine.Materials().Get(HashAssetIdentity<AssetKind::Material>("grass"));
+	mPlaneMaterial = engine.Materials().Get(HashAssetIdentity<AssetKind::Material>("grassPlane"));
 }
 
 void Scene_grass::BuildRenderItems(MCEngine& engine) {
@@ -129,35 +135,63 @@ void Scene_grass::BuildRenderItems(MCEngine& engine) {
 
 	OutputDebugString(L"start gridRitem\n");
 	auto gridRitem = std::make_unique<RenderItem>();
+	gridRitem->Position = DirectX::XMFLOAT3(0.0f, -0.01f, 0.0f);
 	XMStoreFloat4x4(&gridRitem->World, XMMatrixTranslation(.0f, -0.01f, .0f));
 	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
 	gridRitem->ObjCBIndex = objCBIndex++;
 	gridRitem->Name = "grid";
-	gridRitem->Geo = geometries["shapeGeo"].get();
-	gridRitem->Mat = materials["grassPlane"].get();
+	gridRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("grass_shapeGeo");
+	gridRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("grassPlane");
+	gridRitem->Geo = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("grass_shapeGeo"));
+	gridRitem->Mat = engine.Materials().Get(gridRitem->materialHandle);
 	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
 	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
 	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 	gridRitem->Bounds = gridRitem->Geo->DrawArgs["grid"].Bounds;
-	layers[(int)RenderLayer::Opaque].insert(gridRitem.get());
-	mPlaneRitem = gridRitem.get();
-	allRitems.push_back(std::move(gridRitem));
+	gridRitem->SubmeshName = "grid";
+	mPlaneRitem = AddRenderItem(std::move(gridRitem), RenderLayer::Opaque);
 
 	OutputDebugString(L"start quadRitem\n");
 	auto quadRitem = std::make_unique<RenderItem>();
 	quadRitem->ObjInstIndex = objInstIndex++;
 	quadRitem->ObjCBIndex = objCBIndex++;
 	quadRitem->Name = "quad";
-	quadRitem->Geo = geometries["shapeGeo"].get();
-	quadRitem->Mat = materials["grass"].get();
+	quadRitem->meshHandle     = HashAssetIdentity<AssetKind::MeshSource>("grass_shapeGeo");
+	quadRitem->materialHandle = HashAssetIdentity<AssetKind::Material>("grass");
+	quadRitem->Geo = engine.Meshes().GetGeometry(HashAssetIdentity<AssetKind::MeshSource>("grass_shapeGeo"));
+	quadRitem->Mat = engine.Materials().Get(quadRitem->materialHandle);
 	// quadRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	quadRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;
 	quadRitem->IndexCount = quadRitem->Geo->DrawArgs["quad"].IndexCount;
 	quadRitem->StartIndexLocation = quadRitem->Geo->DrawArgs["quad"].StartIndexLocation;
 	quadRitem->BaseVertexLocation = quadRitem->Geo->DrawArgs["quad"].BaseVertexLocation;
 	quadRitem->Bounds = quadRitem->Geo->DrawArgs["quad"].Bounds;
-	quadRitem->GrassInstances.resize(grassCount);
+	quadRitem->SubmeshName = "quad";
+
+	mGrassRitem = AddRenderItem(std::move(quadRitem), RenderLayer::GrassInstanced);
+	mGrassRitem->useCellCulling = true;
+
+	// Populate GrassInstances + InstanceCells. Extracted into its own method so
+	// Activate() can re-fire it after TestLoadActiveSceneFromJson destroys the
+	// old RenderItem and reload leaves the new one with empty instance vectors.
+	PopulateGrassInstances();
+}
+
+void Scene_grass::PopulateGrassInstances() {
+	// Deterministic regeneration of mGrassRitem->GrassInstances from public
+	// scene params. Called from BuildRenderItems on initial Load and from
+	// Activate() when GrassInstances is empty (post-JSON-reload). Same RNG
+	// seed (12345) so regenerated data matches the GPU instance buffer
+	// uploaded once at Load via BuildGpuCullingBuffers.
+	if (!mGrassRitem) return;
+
+	float w = grassCoverageWidth;
+	float d = grassCoverageDepth;
+	UINT grassCount = grassCountWidth * grassCountDepth;
+
+	mGrassRitem->GrassInstances.clear();
+	mGrassRitem->GrassInstances.resize(grassCount);
 	OutputDebugString(L"started instancing render item\n");
 
 	std::mt19937 rng(12345);
@@ -171,38 +205,25 @@ void Scene_grass::BuildRenderItems(MCEngine& engine) {
 	float cellW = w / grassCountWidth;
 	float cellD = d / grassCountDepth;
 
-	float dx = w / (grassCountWidth - 1);
-	float dz = d / (grassCountDepth - 1);
-
-	for (int k = 0; k < grassCountDepth; k++) 
+	for (int k = 0; k < grassCountDepth; k++)
 	{
 		for (int i = 0; i < grassCountWidth; i++) {
 			int index = k * grassCountWidth + i;
-			float px = x + (i + 0.5f) * cellW + jitterDist(rng) * cellW; 
+			float px = x + (i + 0.5f) * cellW + jitterDist(rng) * cellW;
 			float pz = z + (k + 0.5f) * cellD + jitterDist(rng) * cellD; // randomize for every grass, not per depth
 			float rotY = rotDist(rng);
 			float scale = scaleDist(rng);
-			XMMATRIX world =
-				XMMatrixScaling(scale, scale, scale) *
-				XMMatrixRotationY(rotY) *
-				XMMatrixTranslation(px, 0.0f, pz);
 			auto posfl3 = XMFLOAT3(px, 0.0f, pz);
 			XMVECTOR position = XMLoadFloat3(&posfl3);
-			XMStoreFloat3(&quadRitem->GrassInstances[index].grassPosition, position);
-			quadRitem->GrassInstances[index].cosYaw = cos(rotY);
-			quadRitem->GrassInstances[index].sinYaw = sin(rotY);
-			quadRitem->GrassInstances[index].scale = scale;
-			// XMStoreFloat4x4(&quadRitem->GrassInstances[index].World, world);
+			XMStoreFloat3(&mGrassRitem->GrassInstances[index].grassPosition, position);
+			mGrassRitem->GrassInstances[index].cosYaw = cos(rotY);
+			mGrassRitem->GrassInstances[index].sinYaw = sin(rotY);
+			mGrassRitem->GrassInstances[index].scale = scale;
 		}
 	}
 	OutputDebugString(L"completed building render item!\n");
 
-	layers[(int)RenderLayer::GrassInstanced].insert(quadRitem.get());
-	mGrassRitem = quadRitem.get();
-	mGrassRitem->useCellCulling = true;
-	allRitems.push_back(std::move(quadRitem));
-
-	// this is needed if we want to do CPU culling
+	// Sort GrassInstances by cell + build InstanceCells (CPU-culling input).
 	BuildInstanceCells();
 }
 
@@ -423,8 +444,8 @@ void Scene_grass::BuildGpuCullingBuffers(MCEngine& engine) {
 
 
 
-void Scene_grass::Scene_IMGUI(MCEngine& engine) {
-	if (ImGui::Button("Rebuild Scene"))
+void Scene_grass::OnImGui(MCEngine& engine) {
+	if (ImGui::Button("Rebuild MCScene"))
 		engine.RequestReload();
 	ImGui::Separator();
 	ImGui::Checkbox("GPU Culling (Compute Shader)", &useGpuCulling);

@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "GeometryName": "shapeGeo",
+  "MaterialName": "gridFloor",
+  "Name": "ch7_grid",
+  "Position": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.0
+  },
+  "PrimitiveType": 4,
+  "Rotation": {
+    "w": 1.0,
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.0
+  },
+  "Scale": {
+    "x": 1.0,
+    "y": 1.0,
+    "z": 1.0
+  },
+  "SubmeshName": "grid",
+  "TexTransform": {
+    "m00": 5.0,
+    "m01": 0.0,
+    "m02": 0.0,
+    "m03": 0.0,
+    "m10": 0.0,
+    "m11": 5.0,
+    "m12": 0.0,
+    "m13": 0.0,
+    "m20": 0.0,
+    "m21": 0.0,
+    "m22": 1.0,
+    "m23": 0.0,
+    "m30": 0.0,
+    "m31": 0.0,
+    "m32": 0.0,
+    "m33": 1.0
+  },
+  "checkBounds": true,
+  "layers": [
+    "Opaque"
+  ],
+  "useCellCulling": false
+}

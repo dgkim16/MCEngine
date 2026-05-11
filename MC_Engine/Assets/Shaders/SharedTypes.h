@@ -12,7 +12,6 @@
 #elif __cplusplus
 
 #pragma once
-
 #include <cstdint>
 #include <DirectXMath.h>
 
@@ -69,7 +68,9 @@ struct CSB_blur               // mirrors BlurDispatchCB (b0) in blursCS.hlsl
     int    OutputIndex;
 };
 
-#endif
+#endif // --------------------- END OF CPP-only CODE -------------------------------
+
+// --------------------- START OF HLSL & CPP read code -------------------------------
 
 // Fixed indices in sampler heap.
 #define SAM_POINT_WRAP 0
