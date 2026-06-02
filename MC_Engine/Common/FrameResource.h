@@ -31,11 +31,4 @@ public:
 
     // for checking if this frame is still in use by GPU
     UINT64 Fence = 0;
-
-    // GpuTimerCount : time measuring points
-    static const UINT GpuTimerCount = 10; // @begin, after: scene color, depth debug, msaa resolve, force alpha, blurs, sobel, change render target / depth to back buffer, imgui, present
-    ComPtr<ID3D12QueryHeap> GpuTimestampHeap;
-    ComPtr<ID3D12Resource>  GpuTimestampReadback;
-    std::array<double, GpuTimerCount-1> GpuFrameMs = {};
-    double totalGpuFrameMs = 0;
 };

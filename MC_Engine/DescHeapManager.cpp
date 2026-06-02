@@ -99,7 +99,7 @@ void DescHeapManager::CommitToShaderVisible() {
 	for (int t = 0; t < MC_VIEW_TIER_COUNT; ++t) {
 		sFrameCount++;
 		if (!mCSU.dirty[t]) continue;
-		std::cout << "Frame ["<<sFrameCount<<"] [DescHeapManager.cpp] Tier: " << t << " was dirty.Now Copying..." << std::endl;
+		// std::cout << "Frame ["<<sFrameCount<<"] [DescHeapManager.cpp] Tier: " << t << " was dirty.Now Copying..." << std::endl;
 		auto& T = mCSU.tiers[t];
 		if (T.lastOffset <= 0) { mCSU.dirty[t] = false; continue; }
 
@@ -107,8 +107,8 @@ void DescHeapManager::CommitToShaderVisible() {
 		// dirty tracking is a follow-up once we measure per-frame copy cost.
 		CPUH dst(mCSU.combined->GetCPUDescriptorHandleForHeapStart(), mCSU.baseOffset[t], mCSU.descSize);
 		CPUH src(mCSU.cpuHeap[t]->GetCPUDescriptorHandleForHeapStart(), 0,                mCSU.descSize);
-		device->CopyDescriptorsSimple((UINT)T.lastOffset, dst, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+		device->CopyDescriptorsSimple((UINT)T.lastOffset, dst, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		mCSU.dirty[t] = false;
 	}
 }

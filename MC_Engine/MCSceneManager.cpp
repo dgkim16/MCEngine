@@ -3,6 +3,7 @@
 #include "MCScene.h"
 #include "Common/d3dUtil.h"   // ThrowIfFailed
 #include "RenderItem.h"        // RenderLayer count
+#include <cassert>             // Save's path-mismatch guard
 #include <filesystem>          // RecordAssetRedirect uses std::filesystem::rename
 #include <fstream>
 #include <iostream>
@@ -127,9 +128,29 @@ void MCSceneManager::EraseScene(const std::string& name) {
 }
 
 void MCSceneManager::Save(const std::string& name, const std::string& path) const {
-	// throw std::runtime_error("MCSceneManager::Save not implemented (D8 Step 6b — full ToJson())");
 	auto* s = Get(name);
 	if (!s) throw std::runtime_error("Save: scene '" + name + "' not registered");
+
+	// Belt-and-suspenders: catch the class of bug where a caller passes a path
+	// that doesn't match this scene's registered path (e.g. stale mCurrentScenePath
+	// after a scene Switch). The cost of getting this wrong is overwriting
+	// somebody else's scene JSON with this scene's content — silent corruption
+	// of user data. Fires loudly the moment paths desync.
+	auto it = mScenePaths.find(name);
+	if (it != mScenePaths.end()) {
+		std::filesystem::path want = it->second;
+		std::filesystem::path got  = path;
+		std::error_code ec;
+		// weakly_canonical handles relative vs absolute + . / .. without requiring
+		// the file to exist (path may be the target of the about-to-happen write).
+		auto wantN = std::filesystem::weakly_canonical(want, ec); if (ec) wantN = want;
+		auto gotN  = std::filesystem::weakly_canonical(got,  ec); if (ec) gotN  = got;
+		assert(wantN == gotN
+			&& "MCSceneManager::Save: path argument does not match the registered "
+			   "path for this scene. Likely cause: stale path cached outside the "
+			   "scene manager. Use SaveActiveToRegisteredPath() instead.");
+	}
+
 	std::ofstream(path) << s->ToJson().dump(2);
 }
 
@@ -235,12 +256,14 @@ void MCSceneManager::ConsumePendingSwitch() {
 // D9 Step 5a — full-scene reload from disk. Save first to flush in-memory ImGui
 // edits to module params (e.g. MCGrassCullingModule::grassCountWidth) before
 // drop-and-reload — without the Save, those edits are silently destroyed.
-void MCSceneManager::Reload() {
+void MCSceneManager::Reload(bool save) {
 	if (!mActive) throw std::runtime_error("Reload: no active scene");
 	const std::string activeName = mActive->name;
 	const std::string path = mScenePaths.at(activeName);
 	// mEngine.mSelectedItemIndex = -1; // don't need this for now.
-	Save(activeName, path);
+	if (save) {
+		Save(activeName, path);
+	}
 
 	mActive->Deactivate(mEngine);
 	mActive = nullptr;

@@ -2,10 +2,7 @@
 
 #include "d3dUtil.h"
 #include "GameTimer.h"
-
-#ifndef _DEBUG 
-#define _DEBUG
-#endif
+#include <dxgi1_4.h>
 
 // Link necessary d3d12 libraries.
 #pragma comment(lib,"d3dcompiler.lib")
@@ -33,10 +30,12 @@ public:
 
 	bool Get4xMsaaState()const;
 	void Set4xMsaaState(bool value);
+	bool GetGbvState() const { return mGBVenabled; }
 
 	int Run();
 	virtual bool Initialize();
 	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	
 
 // virtual functions
 protected:
@@ -90,7 +89,7 @@ protected:
 
 	// Declare variables
 	ComPtr<IDXGIFactory4> mdxgiFactory; // dxgi1_4.h
-	ComPtr<IDXGISwapChain> mSwapChain;
+	ComPtr<IDXGISwapChain3> mSwapChain;
 	ComPtr<ID3D12Device> md3dDevice; // d3d12.h
 
 	ComPtr<ID3D12Fence> mFence;
@@ -131,6 +130,7 @@ protected:
 	bool mTearingSupported = false;	// for tearing (disables vsync by dxgi)
 	float nearPlane = 0.01f;
 	float farPlane = 1000.0f;
+	bool mGBVenabled = false;
 
 // Factored my way
 private:

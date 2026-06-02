@@ -139,11 +139,12 @@ void D3DApp::CreateSwapChain() {
 	// so the book is outdated
 
 	// Note: Swap chain uses queue to perform flush.
+	ComPtr<IDXGISwapChain> sc;
 	ThrowIfFailed(mdxgiFactory->CreateSwapChain(
 		mCommandQueue.Get(),
 		&sd,
-		mSwapChain.GetAddressOf()));
-
+		sc.GetAddressOf()));
+	ThrowIfFailed(sc.As(&mSwapChain));
 	// swap chain's buffer is not created yet
 	// thus the buffer resource is not 'viewed' to 'Resource' either
 	// OnResize() does the creation and viewing 
@@ -192,6 +193,7 @@ void D3DApp::OnResize() {
 
 	// flush and reset cmdqueue and cmdlist
 	FlushCommandQueue();
+	mDirectCmdListAlloc->Reset();
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 
 	// reset swapchain buffers and DS_buffer
@@ -287,6 +289,14 @@ void D3DApp::OnResize() {
 	mScissorRect = { 0, 0, mClientWidth, mClientHeight };
 }
 
+bool IsPIXAttached()
+{
+	// WinPixGpuCapturer.dll is loaded when launching under PIX for GPU capture.
+	// WinPixTimingCapturer.dll for timing captures.
+	return GetModuleHandleW(L"WinPixGpuCapturer.dll") != nullptr
+		|| GetModuleHandleW(L"WinPixTimingCapturer.dll") != nullptr;
+}
+
 bool D3DApp::InitDirect3D() {
 #if defined(DEBUG) || defined(_DEBUG) 
 	// ============== DEBUG LAYER =================
@@ -296,15 +306,16 @@ bool D3DApp::InitDirect3D() {
 		ComPtr<ID3D12Debug> debugController;
 		ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)));
 		debugController->EnableDebugLayer();
-		/*
-		ComPtr<ID3D12Debug1> debugController1;
-		if (SUCCEEDED(debugController.As(&debugController1))) {
-			// enable GPU-Based Validation (GBV) before creating a device with the debug layer enabled.
-			// overhead is non-trivial, but not signficant. Make sure to disable this when using PIX to profile performance.
-			debugController1->SetEnableGPUBasedValidation(TRUE);
+		// Must comment out when using PIX for comparing timings
+		if (!IsPIXAttached()) {
+			ComPtr<ID3D12Debug1> debugController1;
+			if (SUCCEEDED(debugController.As(&debugController1))) {
+				// enable GPU-Based Validation (GBV) before creating a device with the debug layer enabled.
+				// overhead is non-trivial, but not signficant. Make sure to disable this when using PIX to profile performance.
+				debugController1->SetEnableGPUBasedValidation(TRUE);
+			}
+			mGBVenabled = true;
 		}
-		*/
-		
 	}
 #endif
 	create_Device();
@@ -315,7 +326,10 @@ bool D3DApp::InitDirect3D() {
 	{
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
-		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+		// comment out if using PIX
+		if(!IsPIXAttached())
+			infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+		// Do not break here -  PIX's own D3D12 hooks routinely produce WARNING-severity messages of their own
 
 		D3D12_MESSAGE_ID denyIds[] = {
 			D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,

@@ -45,8 +45,9 @@ struct DHInfo {
 	// if there is no entry in free list, set target idx for alloc as the last offset (<maxcap)
 	int allocate() {
 		if (!freeList.empty()) {
-			int idx = freeList.back();
-			freeList.pop_back();
+			auto it = std::min_element(freeList.begin(),freeList.end());
+			int idx = *it;
+			freeList.erase(it);
 			return idx;
 		}
 		if (lastOffset >= MaxCapacity) {

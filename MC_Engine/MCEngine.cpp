@@ -9,11 +9,16 @@
 #include <dxgidebug.h>
 #include <pix3.h>
 #include "MCAssetIdentity.h"
-#include "AuthorScenes.h"
+#include "ConstExpressionValues.h" // gNumFrameResources
 
+/*
+#include "FrameGraph/FrameGraph.h"
+#include "FrameGraph/FrameGraphPasses.h"
+#include "FrameGraph/LambdaPass.h"
+*/
 using namespace DirectX;
 
-extern const int gNumFrameResources;  // in d3dUtil.h
+// extern const int gNumFrameResources;  // in d3dUtil.h
 
 // Texture metadata now lives in Assets/Textures/*.mctex; loaded by
 // mTextureManager.LoadDirectory in Initialize.
@@ -21,7 +26,8 @@ extern const int gNumFrameResources;  // in d3dUtil.h
 MCEngine::MCEngine(HINSTANCE hInstance)
 	: D3DApp(hInstance), 
 	mMaterialManager(*this), mTextureManager(*this), 
-	mMeshSourceManager(*this), mSceneManager(*this), mMigrator()
+	mMeshSourceManager(*this), mSceneManager(*this), mMigrator(),
+	mGpuTimer(*this)
 {
 	mMainWndCaption = L"MC Engine";
 	BuildCamera();
@@ -57,11 +63,11 @@ MCEngine::~MCEngine()
 
 	mSceneColor.mResource.Reset();
 	mSceneDepth.mResource.Reset();
-	mViewportColor.mResource.Reset();
+	// mViewportColor.mResource.Reset();
 	mDepthDebugColor.mResource.Reset();
 	mViewportNoAlpha.mResource.Reset();
 	mBlurred0.mResource.Reset();
-	mBlurred1.mResource.Reset();
+	// mBlurred1.mResource.Reset();
 	mForceAlphaUploadBuffer.reset();
 	mBlurUploadBuffer.reset();
 	mSobelUploadBuffer.reset();
@@ -77,6 +83,7 @@ MCEngine::~MCEngine()
 	mCommandList.Reset();
 	mDirectCmdListAlloc.Reset();
 	mFrameResources.clear();
+	mGpuTimer.Reset();
 
 	// Release manager-owned GPU resources before the device is destroyed.
 	// Both managers hold ID3D12Resource ComPtrs (texture default heaps, geometry
@@ -96,6 +103,8 @@ MCEngine::~MCEngine()
 	// (mSceneManager owns its mScenes map; it's destroyed when MCEngine is destroyed.
 	// We don't need to clear it manually here, but ResetSceneResources runs first to
 	// release MCScene-owned GPU resources while the device is still alive.)
+
+	mFrameGraph.reset();
 
 	for (auto& bbuf : mSwapChainBuffer)
 		bbuf.Reset();
@@ -125,46 +134,26 @@ MCEngine::~MCEngine()
 bool MCEngine::Initialize()
 {
 	std::cout << "start initialization\n";
+
 	if (!D3DApp::Initialize())
 		return false;
 	std::cout << "D3DAPP init Success\n"; OutputDebugString(L"D3DAPP init Success\n");
-
-#ifdef MC_AUTHOR_SCENES_ONCE
-	// Step 8A4 one-shot: read v1-shape Assets/scenes/scene_*.json files,
-	// transform each into the v2 eight-key shape (drop-merging), and write
-	// them back. Process exits immediately after — re-run without the
-	// -DMC_AUTHOR_SCENES_ONCE flag for normal boot.
-	AuthorScenes::EmitAll();
-	std::exit(0);
-#endif
+	mFrameGraph = std::make_unique<FrameGraph>(md3dDevice.Get());
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
+	if (HMODULE pix = PIXLoadLatestWinPixGpuCapturerLibrary())
+		std::cout << "PIX GPU capturer loaded for attach support\n";
+	else
+		std::cout << "PIX not installed (Capture won't be available; engine runs normally)\n";
 
 	mBarrierManager;
-
-	// Material manager populated before scene::BuildRenderItems (which calls
-	// engine.Materials().Get(handle)). Materials don't touch the descriptor
-	// heap during load — just JSON parsing + CB-index assignment.
-	// Texture LoadDirectory is deferred to after BuildDescriptorHeaps because
-	// MCTextureManager::LoadFromFile calls DescHeapManager::Get().CreateSrv2d,
-	// which requires DescHeapManager::Init.
-	// MatCBFreeList needs non-zero capacity before LoadDirectory's Allocate;
-	// 256 is a generous Phase-1 ceiling.
-	mMaterialManager.MatCBFreeList().SetCapacity(256);
+	mGpuTimer.Initialize(md3dDevice.Get(), mCommandQueue.Get());
+	mMaterialManager.MatCBFreeList().SetCapacity(256); // 256 is a generous value for Phase1
 	mMaterialManager.LoadDirectory("Assets/materials");
 
 	BuildRootSignature();            std::cout << "BuildRootSignature() success\n" << std::endl; OutputDebugString(L"BuildRootSignature() success\n");
 	BuildShadersAndInputLayout();    std::cout << "BuildShadersAndInputLayout() success\n" << std::endl; OutputDebugString(L"BuildShadersAndInputLayout() success\n");
 
 	RegisterLights();
-
-	// mObjCBFreeList must be sized BEFORE LoadAll: under v2 each LoadRenderItemsFromJson
-	// allocates an ObjCBIndex slot, and Allocate throws when capacity is 0. v1's
-	// Scene_X::BuildRenderItems used a local objCBIndex++ counter, so the free list
-	// only needed sizing later (after BuildFrameResources at line ~168). 8A5 pulled
-	// the Allocate forward into LoadAll, hence the early sizing here. The downstream
-	// BuildFrameResources still recomputes mObjCBCapacity from the active scene's
-	// item count + 64 headroom, and the SetCapacity below adjusts to match — that
-	// adjustment is safe as long as the headroom keeps it ≥ free-list high-water.
 	constexpr std::uint32_t kBootObjCBCapacity = 256;
 	mObjCBFreeList.SetCapacity(kBootObjCBCapacity);
 
@@ -177,16 +166,11 @@ bool MCEngine::Initialize()
 		{"SoloVoid", "assets/scenes/scene_solo_void.json"},   // D9 Step 6a — empty-scene edge case
 		{"SoloBox",  "assets/scenes/scene_solo_box.json"},    // D9 Step 6b — single-render-item edge case
 		});
-	mSceneManager.ValidateRedirects();   // D9 Step 2b — dangling-target check; runs after LoadAll so procedural meshes are present.
+	mSceneManager.ValidateRedirects();   // runs after LoadAll so procedural meshes are present.
 	mSceneManager.Switch("Ch7");
 
 	BuildFrameResources();           std::cout << "BuildFrameResources() success\n" << std::endl; OutputDebugString(L"BuildFrameResources() success\n");
 	mObjCBFreeList.SetCapacity(mObjCBCapacity);
-	// v1 had: assert(HighWater == GetActive()->allRitems.size()) — one scene loaded at a time.
-	// v2 LoadAll loads every scene upfront, so HighWater spans all scenes' items, not just the
-	// active one. Keep the weaker invariant: every active-scene item must have a slot, and
-	// the per-frame ObjCB array (sized at mObjCBCapacity = active+headroom) must cover the
-	// global high-water — otherwise a render-item ObjCBIndex would index past the end.
 	assert(mObjCBFreeList.HighWater() >= mSceneManager.GetActive()->allRitems.size()
 	       && "free-list high-water below active scene's item count");
 	assert(mObjCBCapacity >= mObjCBFreeList.HighWater()
@@ -215,26 +199,33 @@ bool MCEngine::Initialize()
 	PreInitObjectCBs();
 
 	OutputDebugString(L"MCEngine-Initialize() - IMGUI init Start\n");
-	// IMGUI_BuildImGuiDescriptorHeap();
 	IMGUI_INIT();
 	OutputDebugString(L"MCEngine-Initialize() - IMGUI init Done\n");
 
-	// Sync mCurrentScenePath to whatever LoadAll registered for the active
-	// scene. Without this the title bar shows "(unsaved)" until the user opens
-	// or saves something, even though Ch7 was loaded from a real file on disk.
-	if (auto* active = mSceneManager.GetActive())
-		mCurrentScenePath = mSceneManager.GetScenePath(active->name);
+	// --- FrameGraph MVP test
+	InitializeRenderPass();
+	
+
+	// Title bar reads the path lazily via mSceneManager.GetScenePath() in
+	// RefreshWindowTitle below — no separate engine-side cache to keep in sync.
 	RefreshWindowTitle();
 
 	return true;
 }
 
-// this should not be called when in runtime (phase 3, separating runtime and editor)
+// phase 3; separate this from runtime, only in editor
 void MCEngine::RefreshWindowTitle() {
 	std::wstring title = mMainWndCaption;
-	title += L" (fps:" + mFpsStr + L" mspf: " + mMspfStr + L") ";
-	title += mCurrentScenePath.empty() ? L"(unsaved)" : mCurrentScenePath.filename().wstring();
-	
+	title += (GetGbvState() ? L"(GBV) (fps:" : L" (fps:") + mFpsStr + L" mspf: " + mMspfStr + L") ";
+
+	// Read the active scene's registered path directly from MCSceneManager —
+	// single source of truth. Previously this cached into MCEngine::mCurrentScenePath,
+	// which desynced after Switch() and caused Save to write to the wrong file.
+	std::filesystem::path activePath;
+	if (auto* active = mSceneManager.GetActive())
+		activePath = mSceneManager.GetScenePath(active->name);
+	title += activePath.empty() ? L"(unsaved)" : activePath.filename().wstring();
+
 	if (mSceneDirty) title += L"*";
 	SetWindowText(mhMainWnd, title.c_str());
 }
@@ -243,13 +234,13 @@ void MCEngine::RefreshWindowTitle() {
 // re-instantiated module — GPU work for grass), close + execute + flush so
 // the next Draw can Reset cmdlist as usual. cmdlist is closed at ImGui-handler
 // time (IMGUI_UPDATE runs from Update, before Draw resets the list).
-void MCEngine::ReloadActiveSceneNow() {
+void MCEngine::ReloadActiveSceneNow(bool save) {
 	FlushCommandQueue();
 	ThrowIfFailed(mDirectCmdListAlloc->Reset());
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 
 	std::string err;
-	try { mSceneManager.Reload(); }
+	try { mSceneManager.Reload(save); }
 	catch (const std::exception& e) { err = e.what(); }
 
 	// Always close + execute, even on Reload throw. Leaves cmdlist in the
@@ -318,9 +309,8 @@ void MCEngine::Update(GameTimer& gt)
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}
-	ReadBackGpuTimer(dt);
+	mGpuTimer.ReadbackForFrame();
 	IMGUI_UPDATE();
-	TickProfiler(dt);
 	const float kTransitionSpeed = 4.0f; // units per second
 	if (isOrtho)
 		mOrthoT = min(mOrthoT + dt * kTransitionSpeed, 1.0f);
@@ -335,15 +325,12 @@ void MCEngine::Update(GameTimer& gt)
 		FlushCommandQueue();
 		OnSceneResize();
 		mSceneSizeDirty = false;
+		mCameraDirty = true;
 	}
 
 	UpdateDepthDebugCB(gt);
-	UpdateBlurCB(gt);
-	UpdateSobelCB(gt);
 }
 
-int ranCounter = 0;
-int runLimit = gNumFrameResources;
 void MCEngine::UpdateCamera(const GameTimer& gt)
 {		
 	if (mCameraDirty) {
@@ -379,14 +366,14 @@ void MCEngine::UpdateObjectCBs(const GameTimer& gt) {
 		}
 		// Frustum check: always runs every frame — it's a visibility decision, not a resource one
 		// BUT if the camera wasn't dirty AND the object wasn't dirty, there is no need to check bounds
-		if (e->checkBounds && (mFrustrumDirty || e->NumFramesDirty > 0)) {
-			XMMATRIX world = XMLoadFloat4x4(&e->World);
-			// Transform local AABB to world space so the Contains test handles non-uniform scale
-			DirectX::BoundingBox worldBounds;
-			e->Bounds.Transform(worldBounds, world);
-			auto result = cullFrustum.Contains(worldBounds);
-			e->insideFrustrum = !(result == DirectX::DISJOINT);
-		}
+		// if (e->checkBounds && (mFrustrumDirty || e->NumFramesDirty > 0)) {
+		XMMATRIX world = XMLoadFloat4x4(&e->World);
+		// Transform local AABB to world space so the Contains test handles non-uniform scale
+		DirectX::BoundingBox worldBounds;
+		e->Bounds.Transform(worldBounds, world);
+		auto result = cullFrustum.Contains(worldBounds);
+		e->insideFrustrum = !(result == DirectX::DISJOINT);
+		
 		// CB write: only when resource data has changed, decrement only when actually written
 		if (e->NumFramesDirty > 0 && (e->insideFrustrum || !enableBoundsCheck || !e->checkBounds)) {
 			XMMATRIX world = XMLoadFloat4x4(&e->World);
@@ -621,50 +608,6 @@ void MCEngine::UpdateDepthDebugCB(const GameTimer& gt) {
 	--mDepthDebugFramesDirty;
 }
 
-void MCEngine::UpdateBlurCB(const GameTimer& gt) {
-	if (!blurDirty)
-		return;
-	CSB_blur blur = {};
-	auto w = CalcGaussWeights(blurValues.sigma);
-	blur.BlurRadius = (int)w.size() / 2;
-	ZeroMemory(blur.WeightVec, sizeof(blur.WeightVec));
-	CopyMemory(blur.WeightVec, w.data(), w.size() * sizeof(float));
-	blur.InputIndex  = (INT)mBlurred0.SRVs[0].offset;
-	blur.OutputIndex = (INT)mBlurred1.UAVs[0].offset;
-	mBlurUploadBuffer.get()->CopyData(0, blur);
-	blur.InputIndex  = (INT)mBlurred1.SRVs[0].offset;
-	blur.OutputIndex = (INT)mBlurred0.UAVs[0].offset;
-	mBlurUploadBuffer.get()->CopyData(1, blur);
-	blurDirty = false;
-}
-
-void MCEngine::UpdateSobelCB(const GameTimer& gt) {
-	CSB_default csbs;
-	// INputIndex, OutputIndex, Widht, Height	
-	// corresponds to...
-	// gBlurIndex(to sobel), gOutputIndex, gSceneIndex (to mult by sobeled), PADDING (not used)
-	switch (mSobelType) {
-		case SobelType::Default:
-			csbs.InputIndex = (INT)mViewportNoAlpha.SRVs[0].offset;
-			break;
-		case SobelType::Depth:
-			csbs.InputIndex = (INT)mDepthDebugColor.SRVs[0].offset;
-			break;
-		case SobelType::Gaussain:
-		default:
-			csbs.InputIndex = (INT)mBlurred0.SRVs[0].offset;
-			break;
-	}
-	if (blurValues.enabled)
-		csbs.Width = (INT)mBlurred0.SRVs[0].offset;
-	else
-		csbs.Width = (INT)mViewportNoAlpha.SRVs[0].offset; // viewport with no alpha srv
-	csbs.OutputIndex = (INT)mSobelOutput.UAVs[0].offset;
-	
-	mSobelUploadBuffer.get()->CopyData(0, csbs);
-	mSobelUploadBuffer.get()->Resource()->SetName(L"mSobelUploadBuffer");
-}
-
 void MCEngine::BuildDescriptorHeaps()
 {
 	// Static-tier cap covers all SRV/UAV slots that don't churn per frame:
@@ -866,10 +809,10 @@ void MCEngine::BuildSceneRenderTarget()
 		dhm.QueueRemoval_Texture(mSceneColor);
 		dhm.QueueRemoval_Texture(mSceneDepth);
 		dhm.QueueRemoval_Texture(mDepthDebugColor);
-		dhm.QueueRemoval_Texture(mViewportColor);
+		// dhm.QueueRemoval_Texture(mViewportColor);
 		dhm.QueueRemoval_Texture(mViewportNoAlpha);
 		dhm.QueueRemoval_Texture(mBlurred0);
-		dhm.QueueRemoval_Texture(mBlurred1);
+		// dhm.QueueRemoval_Texture(mBlurred1);
 		dhm.QueueRemoval_Texture(mSobelOutput);
 		// GPU is idle here (caller flushed the command queue before resize). Drain the
 		// deferred-free list immediately so BuildSceneRenderTargetDescriptors below
@@ -880,9 +823,9 @@ void MCEngine::BuildSceneRenderTarget()
 	mSceneColor = {};
 	mSceneDepth = {};
 	mDepthDebugColor = {};
-	mViewportColor = {};
+	// mViewportColor = {};
 	mBlurred0 = {};
-	mBlurred1 = {};
+	// mBlurred1 = {};
 	mViewportNoAlpha = {};
 	mSobelOutput = {};
 	// ==============================================
@@ -925,9 +868,14 @@ void MCEngine::BuildSceneRenderTarget()
 	// ==============================================
 	//! create resource for viewport (non-msaa always)
 	// ==============================================
+
+	
+	
 	D3D12_RESOURCE_DESC texDesc_nonMSAA = texDesc;
 	texDesc_nonMSAA.SampleDesc.Count = 1;
 	texDesc_nonMSAA.SampleDesc.Quality = 0;
+	// moved to transient
+	/*
 	ThrowIfFailed(md3dDevice->CreateCommittedResource(
 		&heapProps,
 		D3D12_HEAP_FLAG_NONE,
@@ -939,6 +887,8 @@ void MCEngine::BuildSceneRenderTarget()
 	mViewportColor.mResource.Get()->SetName(L"mViewportColor");
 	mViewportColor.Name = "mViewportColor";
 	mViewportColor.m_currState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	*/
+
 
 	D3D12_RESOURCE_DESC texDesc_nonMSAA_NoAlpha = texDesc_nonMSAA;
 	texDesc_nonMSAA_NoAlpha.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -969,7 +919,7 @@ void MCEngine::BuildSceneRenderTarget()
 	mBlurred0.mResource.Get()->SetName(L"mBlurred0");
 	mBlurred0.Name = "mBlurred0";
 	mBlurred0.m_currState = D3D12_RESOURCE_STATE_GENERIC_READ;
-
+	/*
 	ThrowIfFailed(md3dDevice->CreateCommittedResource(
 		&heapProps,
 		D3D12_HEAP_FLAG_NONE,
@@ -980,6 +930,7 @@ void MCEngine::BuildSceneRenderTarget()
 	mBlurred1.mResource.Get()->SetName(L"mBlurred1");
 	mBlurred1.Name = "mBlurred1";
 	mBlurred1.m_currState = D3D12_RESOURCE_STATE_GENERIC_READ;
+	*/
 
 	// ==============================================
 	//! create resource for sobel-outline output. (non-msaa always)
@@ -1098,7 +1049,7 @@ void MCEngine::BuildSceneRenderTargetDescriptors()
 	dhm.CreateSrv2d(mDepthDebugColor, DXGI_FORMAT_R8G8B8A8_UNORM, false, MC_VIEW_TIER_STATIC);
 
 	// Viewport scene copy target (SRV only)
-	dhm.CreateSrv2d(mViewportColor, mSceneFormat, false, MC_VIEW_TIER_STATIC);
+	// dhm.CreateSrv2d(mViewportColor, mSceneFormat, false, MC_VIEW_TIER_STATIC);
 
 	// Viewport NoAlpha: SRV + UAV
 	dhm.CreateSrv2d(mViewportNoAlpha, mSceneFormat, false, MC_VIEW_TIER_STATIC);
@@ -1106,23 +1057,14 @@ void MCEngine::BuildSceneRenderTargetDescriptors()
 
 	// Blur ping-pong: SRVs then UAVs
 	dhm.CreateSrv2d(mBlurred0, mSceneFormat, false, MC_VIEW_TIER_STATIC);
-	dhm.CreateSrv2d(mBlurred1, mSceneFormat, false, MC_VIEW_TIER_STATIC);
+	// dhm.CreateSrv2d(mBlurred1, mSceneFormat, false, MC_VIEW_TIER_STATIC);
 	dhm.CreateUav2d(mBlurred0, mSceneFormat, 0, MC_VIEW_TIER_STATIC);
-	dhm.CreateUav2d(mBlurred1, mSceneFormat, 0, MC_VIEW_TIER_STATIC);
+	// dhm.CreateUav2d(mBlurred1, mSceneFormat, 0, MC_VIEW_TIER_STATIC);
 
 	// Sobel: SRV + UAV
 	dhm.CreateSrv2d(mSobelOutput, mSceneFormat, false, MC_VIEW_TIER_STATIC);
 	dhm.CreateUav2d(mSobelOutput, mSceneFormat, 0, MC_VIEW_TIER_STATIC);
 
-	// Post-process compute CBs cache bindless offsets of the MCTextureResources above.
-	// Offsets shift after every resize (new allocations land at fresh slots), so
-	// re-upload here. mSobelUploadBuffer is re-uploaded every frame in UpdateSobelCB.
-	if (mForceAlphaUploadBuffer) {
-		CSB_default forceAlphaCB = {};
-		forceAlphaCB.InputIndex  = (INT)mViewportColor.SRVs[0].offset;
-		forceAlphaCB.OutputIndex = (INT)mViewportNoAlpha.UAVs[0].offset;
-		mForceAlphaUploadBuffer->CopyData(0, forceAlphaCB);
-	}
 	blurDirty = true; // UpdateBlurCB next tick rewrites CSB_blur with fresh offsets
 }
 
@@ -1229,51 +1171,77 @@ std::vector<float> MCEngine::CalcGaussWeights(float sigma)
 
 void MCEngine::BuildComputeShaderConstantBufferResources()
 {
-	mForceAlphaUploadBuffer = std::make_unique<UploadBuffer<CSB_default>>(md3dDevice.Get(), 1, 1);
+	
+	// Frame-buffered: gNumFrameResources copies so an in-flight frame's CB isn't
+	// overwritten by the CPU before its dispatch reads it. (Was capacity 1 — single
+	// buffer raced across in-flight frames; see W6.D3 CB-race diagnosis.)
+	mForceAlphaUploadBuffer = std::make_unique<UploadBuffer<CSB_default>>(md3dDevice.Get(), gNumFrameResources, 1);
+	/*
 	CSB_default forceAlphaCB = {};
 	forceAlphaCB.InputIndex  = (INT)mViewportColor.SRVs[0].offset;
 	forceAlphaCB.OutputIndex = (INT)mViewportNoAlpha.UAVs[0].offset;
 	mForceAlphaUploadBuffer->CopyData(0, forceAlphaCB);
+	*/
 	mForceAlphaUploadBuffer->Resource()->SetName(L"mForceAlphaUploadBuffer");
+	
 
-	mSobelUploadBuffer = std::make_unique<UploadBuffer<CSB_default>>(md3dDevice.Get(), 1, 1);
+	// Frame-buffered (gNumFrameResources copies) — same CB-race fix as mForceAlphaUploadBuffer.
+	mSobelUploadBuffer = std::make_unique<UploadBuffer<CSB_default>>(md3dDevice.Get(), gNumFrameResources, 1);
+	/*
 	CSB_default csbs;
 	csbs.InputIndex  = (INT)mBlurred0.SRVs[0].offset;
 	csbs.OutputIndex = (INT)mSobelOutput.UAVs[0].offset;
 	csbs.Width       = (INT)mViewportNoAlpha.SRVs[0].offset;
 	csbs.Height      = (INT)mDepthDebugColor.SRVs[0].offset;
 	mSobelUploadBuffer.get()->CopyData(0, csbs);
+	*/
 	mSobelUploadBuffer.get()->Resource()->SetName(L"mSobelUploadBuffer");
 	
-	auto blurBuf = std::make_unique<UploadBuffer<CSB_blur>>(md3dDevice.Get(), 2, 1);
+	// Frame-buffered: 2 CB slots (H, V) per frame => gNumFrameResources * 2 copies. Same CB-race fix.
+	auto blurBuf = std::make_unique<UploadBuffer<CSB_blur>>(md3dDevice.Get(), gNumFrameResources * 2, 1);
+	/*
 	CSB_blur blurCB0;
 	auto gauss_weights = CalcGaussWeights(0.1f);
 	CopyMemory(blurCB0.WeightVec, gauss_weights.data(), gauss_weights.size() * sizeof(float));
 	blurCB0.BlurRadius = (int)gauss_weights.size() / 2;
 	blurCB0.InputIndex  = (INT)mBlurred0.SRVs[0].offset;
-	blurCB0.OutputIndex = (INT)mBlurred1.UAVs[0].offset;
+	// blurCB0.OutputIndex = (INT)mBlurred1.UAVs[0].offset;
 	blurBuf.get()->CopyData(0, blurCB0);
 	OutputDebugString(L"copied blurCB0\n");
 	CSB_blur blurCB1;
 	CopyMemory(blurCB1.WeightVec, gauss_weights.data(), gauss_weights.size() * sizeof(float));
 	blurCB1.BlurRadius = (int)gauss_weights.size() / 2;
-	blurCB1.InputIndex  = (INT)mBlurred1.SRVs[0].offset;
+	// blurCB1.InputIndex  = (INT)mBlurred1.SRVs[0].offset;
 	blurCB1.OutputIndex = (INT)mBlurred0.UAVs[0].offset;
 	blurBuf.get()->CopyData(1, blurCB1);
+	*/
 	blurBuf.get()->Resource()->SetName(L"mBlurUploadBuffer");
 	mBlurUploadBuffer = std::move(blurBuf);
 	OutputDebugString(L"copied blurCB1\n");
 }
 
+// public; called by RenderPass inheritors
+void MCEngine::DrawLayer(ID3D12GraphicsCommandList* cmdList, RenderLayer layer, std::string pixEventName) {
+	auto* scene = mSceneManager.GetActive();
+	if (!scene) return;
+	const auto& items = scene->layers[(int)layer];
+	if (items.empty()) return;
+	DrawRenderItems(cmdList, items, std::move(pixEventName));
+}
+
+// public; called by RenderPass inheritors
+void MCEngine::DrawInstancedLayer(ID3D12GraphicsCommandList* cmdList, RenderLayer layer, bool useGrass, std::string pixEventName) {
+	auto* scene = mSceneManager.GetActive();
+	if (!scene) return;
+	const auto& items = scene->layers[(int)layer];
+	if (items.empty()) return;
+	DrawInstanceRenderItems(cmdList, items, useGrass, std::move(pixEventName));
+}
+
 void MCEngine::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::set<RenderItem*>& ritems, std::string pixEventName)
 {
 	UINT objCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PerObjectCB));
-	// UINT matCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(MaterialConstants));
-	// UINT objCount = mAllRitems.size();
-	// auto pix_C = PIX_COLOR(1, 0, 0); // how to set color for pixEvent
-	PIXBeginEvent(cmdList, PIX_COLOR(0,1,0), pixEventName.c_str());
 	auto objectCB = mCurrFrameResource->ObjectCB->Resource();
-	// For each render item... (non instances)
 	for (auto& ri : ritems)
 	{
 		if (ri->insideFrustrum || !enableBoundsCheck || !ri->checkBounds) {
@@ -1287,12 +1255,10 @@ void MCEngine::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::se
 			cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
 		}
 	}
-	PIXEndEvent(cmdList);
 }
 
 //! CPU culling path of rendering Grass
 void MCEngine::DrawInstanceRenderItems(ID3D12GraphicsCommandList* cmdList, const std::set<RenderItem*>& ritems, bool useGrass, std::string pixEventName) {
-	PIXBeginEvent(cmdList, PIX_COLOR(0, 1, 0), pixEventName.c_str());
 	UINT strideBytes = useGrass ? sizeof(GrassInstanceData) : sizeof(InstanceData);
 	auto instBuf = useGrass
 		? mCurrFrameResource->GrassInstanceCB->Resource()
@@ -1312,10 +1278,8 @@ void MCEngine::DrawInstanceRenderItems(ID3D12GraphicsCommandList* cmdList, const
 		cmdList->IASetVertexBuffers(0, 1, &vbv);
 		cmdList->IASetIndexBuffer(&ibv);
 		cmdList->IASetPrimitiveTopology(ri->PrimitiveType);
-		
 		cmdList->DrawIndexedInstanced(ri->IndexCount, ri->InstanceCount, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
 	}
-	PIXEndEvent(cmdList);
 }
 
 void MCEngine::DirtyAllRenderItems() {
@@ -1389,8 +1353,8 @@ void MCEngine::Draw(const GameTimer& gt)
 	}
 	
 	// Begin measuring GPU deltatime
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "Frame");
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0);
+	mGpuTimer.BeginFrame();
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "EntireFrame"); // only BeginEvent.
 	
 	// ==========================================================
 	//! PASS 1: render scene to offscreen texture
@@ -1410,173 +1374,159 @@ void MCEngine::Draw(const GameTimer& gt)
 	mCommandList->ClearDepthStencilView(sceneDsv, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 	mCommandList->OMSetRenderTargets(1, &sceneRtv, true, &sceneDsv);
 
-	mSceneManager.GetActive()->Draw(*this);
-	// GrassCullDispatch();
-	ForwardPass(gt);
-	TessellationExample(gt);
-
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 1);
+	{
+		GPU_SCOPED(mCommandList.Get(), "SetUp");
+		// DescHeapManager::Get().CommitToShaderVisible();
+		ID3D12DescriptorHeap* heaps[] = { mCbvSrvUavHeap.Get() };
+		mCommandList->SetDescriptorHeaps(_countof(heaps), heaps);
+		mCommandList->SetGraphicsRootSignature(mRootSignatures[0].Get());
+		auto passCB = mCurrFrameResource->PassCB->Resource();
+		auto matCB = mCurrFrameResource->MaterialCB->Resource();
+		mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
+		mCommandList->SetGraphicsRootShaderResourceView(2, matCB->GetGPUVirtualAddress());
+		// mSceneManager.GetActive()->Draw(*this); // no code runs here
+	}
+	{
+		GPU_SCOPED(mCommandList.Get(), "RenderGraph");
+		mFrameGraph->Begin(mCurrFrameResourceIndex);
+		mFrameGraph->Compile(mBarrierManager, mCpuTimer);
+		mFrameGraph->Execute(mCommandList.Get(), mBarrierManager, mGpuTimer);
+		mFrameGraph->End();
+	}
 	// ==========================================================
 	//! PASS 2: render depth to debug depth texture
 	// ==========================================================
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "Depth normalization pass");
+	{
+		GPU_SCOPED(mCommandList.Get(), "DepthViz");
 
-	// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	mBarrierManager.TransitionState(mSceneDepth, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	mBarrierManager.FlushBarriers(mCommandList.Get());
-	
-	mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["depthDebug_MSAA"].Get() : mPSOs["depthDebug"].Get());
-	auto depthDebugRtv = mDepthDebugColor.RTVs[0].hCpu;
-	mCommandList->OMSetRenderTargets(1, &depthDebugRtv, TRUE, nullptr);
-	mCommandList->ClearRenderTargetView(depthDebugRtv, Colors::Black, 0, nullptr);
+		// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		mBarrierManager.TransitionState(mSceneDepth, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		mBarrierManager.FlushBarriers(mCommandList.Get());
 
-	// ID3D12DescriptorHeap* heaps[] = { mCbvSrvUavHeap.Get() };
-	// mCommandList->SetDescriptorHeaps(_countof(heaps), heaps);	// allows access to cbv/srv/uav via ResourceDescriptorHeap[index] in hlsl
+		mCommandList->SetPipelineState(mScene4xMsaaState ? mPSOs["depthDebug_MSAA"].Get() : mPSOs["depthDebug"].Get());
+		auto depthDebugRtv = mDepthDebugColor.RTVs[0].hCpu;
+		mCommandList->OMSetRenderTargets(1, &depthDebugRtv, TRUE, nullptr);
+		mCommandList->ClearRenderTargetView(depthDebugRtv, Colors::Black, 0, nullptr);
 
-	mCommandList->SetGraphicsRootSignature(mRootSignatures[1].Get());
+		mCommandList->SetGraphicsRootSignature(mRootSignatures[1].Get());
+		mCommandList->SetGraphicsRootDescriptorTable(0, mSceneDepth.SRVs[0].hGpu); // raw scene depth SRV
+		mCommandList->SetGraphicsRootConstantBufferView(1, mCurrFrameResource->DepthCB.get()->Resource()->GetGPUVirtualAddress());
 
-	mCommandList->SetGraphicsRootDescriptorTable(0, mSceneDepth.SRVs[0].hGpu); // raw scene depth SRV
-	mCommandList->SetGraphicsRootConstantBufferView(1, mCurrFrameResource->DepthCB.get()->Resource()->GetGPUVirtualAddress());
+		mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		mCommandList->DrawInstanced(3, 1, 0, 0);
 
-	mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	mCommandList->DrawInstanced(3, 1, 0, 0);
-
-	// mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	// mBarrierManager.TransitionState(mSceneDepth, D3D12_RESOURCE_STATE_DEPTH_WRITE);
-	// mBarrierManager.FlushBarriers(mCommandList.Get());
-
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 2);
-	PIXEndEvent(mCommandList.Get());
+	}
 	// ==========================================================
 	//! PASS 3 : MSAA resolve; copy mSceneColor to mViewportColor (via ResolveSubresource)
 	// ==========================================================
-	if (mScene4xMsaaState) {
-		PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "MSAA resolve pass");
+	if(!mFrameGraph)
+	{
+		/*
+		GPU_SCOPED(mCommandList.Get(), "MSAA resolve");
+		if (mScene4xMsaaState) {
+			mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
+			mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_RESOLVE_DEST);
+			mBarrierManager.FlushBarriers(mCommandList.Get());
 
-		mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_RESOLVE_SOURCE);
-		mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_RESOLVE_DEST);
-		mBarrierManager.FlushBarriers(mCommandList.Get());
-		
-		mCommandList->ResolveSubresource(mViewportColor.mResource.Get(), 0, mSceneColor.mResource.Get(), 0, mSceneFormat);
+			mCommandList->ResolveSubresource(mViewportColor.mResource.Get(), 0, mSceneColor.mResource.Get(), 0, mSceneFormat);
+		}
+		else {
+			mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_COPY_DEST);
+			mBarrierManager.FlushBarriers(mCommandList.Get());
 
-		// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		// mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		// mBarrierManager.FlushBarriers(mCommandList.Get());
-		
-		PIXEndEvent(mCommandList.Get());
+			mCommandList->CopyResource(mViewportColor.mResource.Get(), mSceneColor.mResource.Get());
+		}
+		*/
 	}
-	else {
-		PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "Copy scene texture to viewport texture pass");
-
-		mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_COPY_SOURCE);
-		mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_COPY_DEST);
-		mBarrierManager.FlushBarriers(mCommandList.Get());
-
-		mCommandList->CopyResource(mViewportColor.mResource.Get(),mSceneColor.mResource.Get());
-
-		// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		// BarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		// mBarrierManager.FlushBarriers(mCommandList.Get());
-		PIXEndEvent(mCommandList.Get());
-	}
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 3);
 	// ==========================================================
 	//! PASS 4: (COMPUTE) Copy RGB values from mViewColor to mViewportNoAlpha, but with Alpha = 1.0f
 	// ==========================================================
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(255,0,0), "PSO to forceAlphaOne");
-	mCommandList->SetPipelineState(mPSOs["forceAlphaOne"].Get());
-	mCommandList->SetComputeRootSignature(mComputeRootSignature.Get());
-	mCommandList->SetComputeRootConstantBufferView(0, mForceAlphaUploadBuffer->Resource()->GetGPUVirtualAddress());
-	PIXEndEvent(mCommandList.Get());
-	UINT numGroupsX = (UINT)ceilf(mSceneViewWidth / 16.0f);
-	UINT numGroupsY = (UINT)ceilf(mSceneViewHeight / 16.0f);
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "compute : force alpha pass");
-	mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	mBarrierManager.FlushBarriers(mCommandList.Get());
-
-	mCommandList->Dispatch(numGroupsX, numGroupsY, 1);
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 4);
-	PIXEndEvent(mCommandList.Get());
+	if(!mFrameGraph)
+	{
+		/*
+		GPU_SCOPED(mCommandList.Get(), "ForceAlpha");
+		mCommandList->SetPipelineState(mPSOs["forceAlphaOne"].Get());
+		mCommandList->SetComputeRootSignature(mComputeRootSignature.Get());
+		mCommandList->SetComputeRootConstantBufferView(0, mForceAlphaUploadBuffer->Resource()->GetGPUVirtualAddress());
+		UINT numGroupsX = (UINT)ceilf(mSceneViewWidth / 16.0f);
+		UINT numGroupsY = (UINT)ceilf(mSceneViewHeight / 16.0f);
+		mBarrierManager.TransitionState(mViewportColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		mBarrierManager.FlushBarriers(mCommandList.Get());
+		mCommandList->Dispatch(numGroupsX, numGroupsY, 1);
+		*/
+	}
 	// ==========================================================
 	//! PASS 5: (COMPUTE) Blur what's on viewport
 	// ==========================================================
 	// copy to blur0 >> loop blur between blur0 and blur1 >> copy back into viewport
-	if (blurValues.enabled || (mSobelType == SobelType::Gaussain && mIsSobel)) {
-		PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "compute : blur pass");
-		mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_COPY_SOURCE);
-		mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_COPY_DEST);
-		mBarrierManager.FlushBarriers(mCommandList.Get());
-
-		mCommandList->CopyResource(mBlurred0.mResource.Get(), mViewportNoAlpha.mResource.Get());
-
-		auto blurCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(CSB_blur));
-		D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss0 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress();
-		D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss1 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress() + blurCBByteSize;
-		UINT blurGroupsX = (UINT)ceilf(mSceneViewWidth / 256.0f);
-		UINT blurGroupsY = (UINT)ceilf(mSceneViewHeight / 256.0f);
-		for (int i = 0; i < blurValues.blurIter; i++) {
-			// HORIZONTAL BLUR
-			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			mBarrierManager.TransitionState(mBlurred1, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	if (!mFrameGraph) {
+		if (blurValues.enabled || (mSobelType == SobelType::Gaussain && mIsSobel)) {
+			GPU_SCOPED(mCommandList.Get(), "Blur");
+			mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_COPY_DEST);
 			mBarrierManager.FlushBarriers(mCommandList.Get());
-			mCommandList->SetPipelineState(mPSOs["horzBlur"].Get());
-			mCommandList->SetComputeRootConstantBufferView(0, blurCBaddresss0);
-			mCommandList->Dispatch(blurGroupsX, static_cast<UINT>(mSceneViewHeight), 1);
 
-			// VERTICAL BLUR
-			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			mBarrierManager.TransitionState(mBlurred1, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			mBarrierManager.FlushBarriers(mCommandList.Get());
-			mCommandList->SetPipelineState(mPSOs["vertBlur"].Get());
-			mCommandList->SetComputeRootConstantBufferView(0, blurCBaddresss1);
-			mCommandList->Dispatch(static_cast<UINT>(mSceneViewWidth), blurGroupsY, 1);
+			mCommandList->CopyResource(mBlurred0.mResource.Get(), mViewportNoAlpha.mResource.Get());
+
+			auto blurCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(CSB_blur));
+			D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss0 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress();
+			D3D12_GPU_VIRTUAL_ADDRESS blurCBaddresss1 = mBlurUploadBuffer->Resource()->GetGPUVirtualAddress() + blurCBByteSize;
+			UINT blurGroupsX = (UINT)ceilf(mSceneViewWidth / 256.0f);
+			UINT blurGroupsY = (UINT)ceilf(mSceneViewHeight / 256.0f);
+			for (int i = 0; i < blurValues.blurIter; i++) {
+				// HORIZONTAL BLUR
+				mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				// mBarrierManager.TransitionState(mBlurred1, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				mBarrierManager.FlushBarriers(mCommandList.Get());
+				mCommandList->SetPipelineState(mPSOs["horzBlur"].Get());
+				mCommandList->SetComputeRootConstantBufferView(0, blurCBaddresss0);
+				mCommandList->Dispatch(blurGroupsX, static_cast<UINT>(mSceneViewHeight), 1);
+
+				// VERTICAL BLUR
+				mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				// mBarrierManager.TransitionState(mBlurred1, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				mBarrierManager.FlushBarriers(mCommandList.Get());
+				mCommandList->SetPipelineState(mPSOs["vertBlur"].Get());
+				mCommandList->SetComputeRootConstantBufferView(0, blurCBaddresss1);
+				mCommandList->Dispatch(static_cast<UINT>(mSceneViewWidth), blurGroupsY, 1);
+			}
 		}
-		PIXEndEvent(mCommandList.Get());
 	}
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 5);
 	// ==========================================================
-	//! PASS 5.5: (COMPUTE) use sobel on blurred output and multiply with scene before blur 
-	if (mIsSobel) {
-		PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "compute : sobel outline");
-		UINT sobelGroupsX = (UINT)ceilf(mSceneViewWidth / 8.0f);
-		UINT sobelGroupsY = (UINT)ceilf(mSceneViewHeight / 8.0f);
-
-		switch (mSobelType) {
-		case SobelType::Default:
+	//! PASS 5.5: (COMPUTE) use sobel on blurred output and multiply with scene before blur
+	if (!mFrameGraph) {
+		if (mIsSobel) {
+			GPU_SCOPED(mCommandList.Get(), "Sobel");
+			UINT sobelGroupsX = (UINT)ceilf(mSceneViewWidth / 8.0f);
+			UINT sobelGroupsY = (UINT)ceilf(mSceneViewHeight / 8.0f);
 			mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			break;
-		case SobelType::Depth:
-			mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			break;
-		case SobelType::Gaussain:
-		default:
-			mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			break;
-		}
-		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		mBarrierManager.FlushBarriers(mCommandList.Get());
+			switch (mSobelType) {
+			case SobelType::Default:
+			case SobelType::Depth:
+				mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				break;
+			case SobelType::Gaussain:
+			default:
+				mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				break;
+			}
+			mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			mBarrierManager.FlushBarriers(mCommandList.Get());
 
-		mCommandList->SetPipelineState(mPSOs["sobel"].Get());
-		D3D12_GPU_VIRTUAL_ADDRESS sobelCBaddress = mSobelUploadBuffer->Resource()->GetGPUVirtualAddress();
-		mCommandList->SetComputeRootConstantBufferView(0, sobelCBaddress);
-		mCommandList->Dispatch(sobelGroupsX, sobelGroupsY, 1);
-		/*
-		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_GENERIC_READ);
-		mBarrierManager.FlushBarriers(mCommandList.Get());
-		*/
-		PIXEndEvent(mCommandList.Get());
+			mCommandList->SetPipelineState(mPSOs["sobel"].Get());
+			D3D12_GPU_VIRTUAL_ADDRESS sobelCBaddress = mSobelUploadBuffer->Resource()->GetGPUVirtualAddress();
+			mCommandList->SetComputeRootConstantBufferView(0, sobelCBaddress);
+			mCommandList->Dispatch(sobelGroupsX, sobelGroupsY, 1);
+		}
 	}
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 6);
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 7);
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 8);
-	mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 9);
-	mCommandList->ResolveQueryData(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0,FrameResource::GpuTimerCount, mCurrFrameResource->GpuTimestampReadback.Get(), 0);
+
 	// ==========================================================
 	//! PASS 6: render Imgui to swap chain back buffer
 	// ==========================================================
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "set back buffer as render target");
+	mCurrBackBuffer = mSwapChain->GetCurrentBackBufferIndex();
 	auto transition_BB = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	mCommandList->ResourceBarrier(1, &transition_BB);
@@ -1587,25 +1537,25 @@ void MCEngine::Draw(const GameTimer& gt)
 	mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 	auto dsv = DepthStencilView();
 	mCommandList->OMSetRenderTargets(1, &backRtv, true, &dsv);
-	//mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 7);
-	PIXEndEvent(mCommandList.Get());
 
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR_DEFAULT, "imgui pass");
-	IMGUI_RENDERDRAWDATA();
-	PIXEndEvent(mCommandList.Get());
+	{
+		GPU_SCOPED(mCommandList.Get(), "ImGui");
+		IMGUI_RENDERDRAWDATA();
+	}
+	
 
-	//mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 8);
 	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_PRESENT
 	);
 	mCommandList->ResourceBarrier(1, &transition);
-
+	
 	// End measuring GPU deltatime
-	//mCommandList->EndQuery(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 9);
-	//mCommandList->ResolveQueryData(mCurrFrameResource->GpuTimestampHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0,FrameResource::GpuTimerCount, mCurrFrameResource->GpuTimestampReadback.Get(), 0);
+	mGpuTimer.ResolveForFrame(mCommandList.Get());
+	
 	PIXEndEvent(mCommandList.Get());	// Frame 
+	
 	ThrowIfFailed(mCommandList->Close());
 	// ==========================================================
 	
@@ -1615,11 +1565,13 @@ void MCEngine::Draw(const GameTimer& gt)
 	
 	// swap the back and front buffers
 	UINT presentFlags = mTearingSupported && !enableVsync ? DXGI_PRESENT_ALLOW_TEARING : 0;
-	ThrowIfFailed(mSwapChain->Present(0, presentFlags)); // set SyncInterval to 1~4 to enable VSYNC (it gets enabled by default by dxgi tho, so need to use flags to disable it)
-	mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
-
+	UINT syncInterval = mTearingSupported && !enableVsync ? 0 : 1;
+	ThrowIfFailed(mSwapChain->Present(syncInterval, presentFlags)); // set SyncInterval to 1~4 to enable VSYNC (it gets enabled by default by dxgi tho, so need to use flags to disable it)
+	// mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
+	
 	mCurrFrameResource->Fence = ++mCurrentFence;						// Instead of flushing, advance the fence value to mark commands up to this fence point
 	mCommandQueue->Signal(mFence.Get(), mCurrentFence);		// then add instruction to cmd queue to set new fence point
+	
 }
 
 LRESULT MCEngine::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {

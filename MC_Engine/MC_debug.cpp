@@ -1,42 +1,5 @@
 #include "MCEngine.h"
 #include "MCScene.h"
-struct LayerDebugInfo
-{
-	RenderLayer layer;
-	const char* name;
-};
-
-static size_t counts[] = { 0, 0, 0, 0, 0, 0, 0 };
-
-const LayerDebugInfo layers[] =
-{
-	{ RenderLayer::Opaque,      "Opaque" },
-	{ RenderLayer::AlphaTested, "AlphaTested" },
-	{ RenderLayer::Transparent, "Transparent" },
-	{ RenderLayer::Mirrors,     "Mirrors" },
-	{ RenderLayer::Reflected,   "Reflected" },
-	{ RenderLayer::Shadow,      "Shadow" },
-	{ RenderLayer::AlphaTestedTreeSprites,      "AlphaTestedTreeSprites" },
-	{ RenderLayer::OpaqueTessellated,      "OpaqueTessellated" },
-	{ RenderLayer::OpaqueInstanced,      "OpaqueInstanced" },
-	{ RenderLayer::AlphaTestedInstanced,      "AlphaTestedInstanced" },
-};
-
-void MCEngine::PrintRenderItemInLayers() {
-	auto* scene = mSceneManager.GetActive();
-	if (!scene) return;
-	bool chng = false;
-	for (int i = 0; i < 6; ++i) {
-		size_t curr = scene->layers[(int)layers[i].layer].size();
-		if (counts[i] != curr) {
-			std::cout << layers[i].name << " : " << counts[i] << " >> "<<curr<< std::endl;
-			counts[i] = curr;
-			chng = true;
-		}
-	}
-	if (chng) std::cout << "-------------------------" << std::endl;
-}
-
 
 // ============================================================
 //  Debug Visualization

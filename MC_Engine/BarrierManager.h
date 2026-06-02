@@ -13,9 +13,13 @@ public:
 	void InsertUAVBarrier(MCResource& res);
 
 	void SplitTransitionState(MCResource& res, D3D12_RESOURCE_STATES target) { assert(false && "not yet implemented"); }
-	void AliasBarrier(MCResource& current, MCResource& target)				 { assert(false && "not yet implemented"); }
+	void AliasBarrier(MCResource& current, MCResource& target);
 
 	void FlushBarriers(ID3D12GraphicsCommandList* cmdList);
+
+	D3D12_RESOURCE_STATES GetCurrentState(const MCResource& res) const {
+		return res.m_currState;
+	}
 
 private:
 	std::vector<D3D12_RESOURCE_BARRIER> mPendingBarriers;

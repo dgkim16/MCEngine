@@ -53,7 +53,14 @@ TextureHandle MCTextureManager::LoadFromFile(const std::string& path) {
     // wired through the descriptor manager, then handed to the asset.
     auto res = std::make_unique<MCTextureResource>();
     res->Name     = displayName;
-    res->Filename = AnsiToWString(asset.assetPath);
+    // assetPath comes from nlohmann::json (UTF-8). AnsiToWString uses CP_ACP and
+    // mojibakes any non-ASCII path; route UTF-8 through MultiByteToWideChar instead.
+    {
+        const int wlen = MultiByteToWideChar(CP_UTF8, 0, asset.assetPath.c_str(), -1, nullptr, 0);
+        res->Filename.assign(wlen > 0 ? wlen - 1 : 0, L'\0');
+        if (wlen > 1)
+            MultiByteToWideChar(CP_UTF8, 0, asset.assetPath.c_str(), -1, res->Filename.data(), wlen);
+    }
 
     ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
         mEngine.GetDevice(),

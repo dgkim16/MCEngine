@@ -61,10 +61,7 @@ The build copies `dxcompiler.dll`, `dxil.dll`, and the Assimp runtime next to th
 │   ├── ForwardPass.cpp          # Main render loop; layer iteration and draw submission
 │   ├── DescHeapManager.cpp / .h # Descriptor heap allocator
 │   ├── BarrierManager.cpp / .h  # Resource state-transition batching
-│   ├── Scene_Ch7.cpp / .h       # Original Luna Chapter 7 scene
-│   ├── Scene_grass.cpp / .h     # Instanced grass scene with culling
-│   ├── Scene_Empty.cpp / .h     # Minimal scene for baseline measurements
-│   ├── ShaderLib*.cpp           # Runtime HLSL compilation cache (DXC)
+│   ├── ShaderLib*.cpp           # Runtime HLSL compilation cache (DXC/FXC)
 │   ├── MC_imgui*.cpp            # ImGui integration and descriptor-heap visualizer
 │   └── MC_Engine.sln
 └── README.md

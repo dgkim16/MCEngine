@@ -23,6 +23,7 @@ void MCEngine::IMGUI_MENUBAR() {
         }
         if (ImGui::BeginMenu("Debug")) {
             if (ImGui::MenuItem("Descriptor Heap Viewer")) { mShowDescHeapViewer = !mShowDescHeapViewer; }
+            if (ImGui::MenuItem("FrameGraph Viewer")) { mShowFrameGraphViewer = !mShowFrameGraphViewer; }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Test")) {
@@ -62,10 +63,15 @@ std::optional<std::filesystem::path> ShowSaveMaterialDialog(HWND owner) {
 }
 
 bool MCEngine::FileMenuSave() {
-    if (mCurrentScenePath.empty()) return FileMenuSaveAs();
     auto* scene = mSceneManager.GetActive();
     if (!scene) return false;
-    mSceneManager.SaveActive(mCurrentScenePath.string());
+    // No path argument — the scene manager owns the active scene's path via
+    // mScenePaths. If no path is registered for this scene yet, fall back to
+    // Save As so the user picks one. This is the single-source-of-truth fix
+    // for the stale-path bug: any cached copy of the path on MCEngine would
+    // desync the moment the active scene switched.
+    if (mSceneManager.GetScenePath(scene->name).empty()) return FileMenuSaveAs();
+    mSceneManager.SaveActiveToRegisteredPath();
     mSceneDirty = false;
     RefreshWindowTitle();
     return true;
@@ -77,9 +83,11 @@ bool MCEngine::FileMenuSaveAs() {
     auto* scene = mSceneManager.GetActive();
     if (!scene) return false;
 
-    mSceneManager.SaveActive(picked->string());
-    mSceneManager.SetScenePath(scene->name, picked->string());   // keep mScenePaths in sync
-    mCurrentScenePath = *picked;
+    // SetScenePath BEFORE SaveActive so the assert inside MCSceneManager::Save
+    // sees a matching registered path. Otherwise the assert fires on the first
+    // SaveAs of a never-registered scene.
+    mSceneManager.SetScenePath(scene->name, picked->string());
+    mSceneManager.SaveActiveToRegisteredPath();
     mSceneDirty = false;
     RefreshWindowTitle();
     return true;
@@ -105,7 +113,10 @@ void MCEngine::FileMenuOpenScene() {
 
     // 2. Dirty prompt. Save can recurse into Save As, which the user may cancel.
     if (mSceneDirty) {
-        switch (PromptDirtyChoice(mhMainWnd, mCurrentScenePath)) {        // returns Save | Discard | Cancel
+        auto* active = mSceneManager.GetActive();
+        std::filesystem::path activePath;
+        if (active) activePath = mSceneManager.GetScenePath(active->name);
+        switch (PromptDirtyChoice(mhMainWnd, activePath)) {        // returns Save | Discard | Cancel
         case DirtyChoice::Cancel:                 return;
         case DirtyChoice::Save:    if (!FileMenuSave()) return;  // includes Save-As-cancel
             break;
@@ -113,16 +124,22 @@ void MCEngine::FileMenuOpenScene() {
         }
     }
 
-    // 3. Collision dance — if loading would overwrite the active scene's slot
-    //    (same name), evict it cleanly first. Mirrors MCSceneManager::Reload at
-    //    .cpp:227-232. Same dance handles 'Open the active file' (reload-from-disk)
-    //    and 'Open a different file with the same sceneName' (real eviction).
-    if (auto* active = mSceneManager.GetActive(); active && active->name == name) {
-        active->Deactivate(*this);
-        mSceneManager.ClearActive();
+    // 3. Collision dance — if ANY existing entry in mScenes already uses this
+    //    name (active OR just preloaded by boot's LoadAll), evict it cleanly
+    //    BEFORE LoadFromJson runs. Two scenes sharing the same name look like
+    //    one user to MCMeshSourceManager::mUsedBy (set semantics), so the new
+    //    scene's RegisterUsedBy and the old scene's UnregisterUsedBy cancel
+    //    out — the mesh source drops while the new scene is still referencing
+    //    it. Symptom: AV at MCMeshGeometry::VertexBufferView() with
+    //    VertexBufferGPU.ptr_ == 0xFFFFFFFFFFFFFFFF on the first frame after
+    //    Switch. Mirrors MCSceneManager::Reload at .cpp:227-232.
+    if (mSceneManager.Get(name)) {
+        if (auto* active = mSceneManager.GetActive(); active && active->name == name) {
+            active->Deactivate(*this);
+            mSceneManager.ClearActive();
+        }
         mSceneManager.EraseScene(name);
     }
-
     // 4. Commit. Bracket the load+switch with cmdlist Reset/Close/Execute/Flush
     //    because module OnLoad for grass etc. records GPU upload commands via
     //    CreateDefaultBuffer (d3dUtil.cpp:63). At ImGui-handler time the cmdlist
@@ -156,7 +173,9 @@ void MCEngine::FileMenuOpenScene() {
     }
 
     mSelectedItemIndex = -1;          // Switch already does this; explicit for clarity.
-    mCurrentScenePath = *picked;
+    // No mCurrentScenePath assignment — MCSceneManager::LoadFromJson registers
+    // the path in mScenePaths (single source of truth). The title bar reads
+    // from there via mSceneManager.GetScenePath(active->name).
     mSceneDirty = false;
     RefreshWindowTitle();   // update already calls this every frame; explicit for clarity
 }
@@ -177,7 +196,7 @@ void MCEngine::FileMenuCreateScene() {
     j["specialPointers"] = nlohmann::json::object();
 
     std::ofstream(*picked) << j.dump(2);
-    // engine state unchanged: mActive, mSceneDirty, mCurrentScenePath all untouched.
+    // engine state unchanged: mActive, mSceneDirty, mScenePaths all untouched.
     // To use the new scene, the user does Open Scene afterwards.
 }
 

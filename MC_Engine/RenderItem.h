@@ -1,11 +1,12 @@
 #pragma once
-#include "d3dUtil.h"
+// #include "d3dUtil.h"
 #include "MathHelper.h"
 #include "FrameResource.h"
 #include "../MCMaterial.h"
 #include "../MCMeshGeometry.h"
 #include "MCAssetIdentity.h"
-extern const int gNumFrameResources;
+#include "ConstExpressionValues.h"
+// extern const int gNumFrameResources;
 
 struct InstanceCell {
 	DirectX::BoundingBox WorldBounds;  // world-space AABB covering all instances in this cell

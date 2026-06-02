@@ -1,11 +1,11 @@
 //***************************************************************************************
+// built on top of 
 // MathHelper.cpp by Frank Luna (C) 2011 All Rights Reserved.
 //***************************************************************************************
 
 #include "MathHelper.h"
 #include <float.h>
 #include <cmath>
-
 
 using namespace DirectX;
 
@@ -18,7 +18,7 @@ std::string MathHelper::to_scientific_string(float x)
         return "0.000 * 10^0";
 
     int exponent = static_cast<int>(std::floor(std::log10(std::fabs(x))));
-    float mantissa = x / std::pow(10.0f, exponent);
+    float mantissa = x / static_cast<float>(std::pow(10.0f, exponent));
 
     std::ostringstream ss;
     ss << std::fixed << std::setprecision(3) << mantissa << " * 10^" << exponent;
@@ -64,9 +64,9 @@ XMFLOAT3 MathHelper::QuatToEulerDegrees(const DirectX::XMFLOAT4& Q) {
     XMFLOAT4X4 m;
     XMStoreFloat4x4(&m, XMMatrixRotationQuaternion(R));
     XMFLOAT3 euler { 
-        XMConvertToDegrees(std::asin(-1.0 * m._32)), 
-        XMConvertToDegrees(std::atan2(m._31, m._33)),
-        XMConvertToDegrees(std::atan2(m._12,m._22))
+        XMConvertToDegrees(static_cast<float>(std::asin(-1.0 * m._32))), 
+        XMConvertToDegrees(static_cast<float>(std::atan2(m._31, m._33))),
+        XMConvertToDegrees(static_cast<float>(std::atan2(m._12,m._22)))
     };
     return euler;
 }

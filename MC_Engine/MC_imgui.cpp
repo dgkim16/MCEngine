@@ -349,11 +349,23 @@ void MCEngine::IMGUI_UPDATE() {
 	ImGui::Begin("Buffer View"); {
 		ImVec2 avail = ImGui::GetContentRegionAvail();
 		float dim = (std::min)(150.0f, (std::min)(avail.x, avail.y)) - 20.0f;
-		ImGui::BeginGroup(); {
-			ImGui::Image((ImTextureID)mSceneDepth.SRVs[0].hGpu.ptr, ImVec2(dim, dim));
-			ImGui::Text("DSV view");
-		}ImGui::EndGroup();
-		ImGui::SameLine();
+		if (!mGBVenabled) {
+			ImGui::BeginGroup(); {
+				if (mScene4xMsaaState) {
+					ImGui::Dummy(ImVec2(dim, dim));
+					// Optional: ImGui::Text() overlaying the dummy area, or just leave a black square.
+				}
+				else {
+					ImGui::Image((ImTextureID)mSceneDepth.SRVs[0].hGpu.ptr, ImVec2(dim, dim));
+					// with gbv enabled & toggling MSAA on : 
+					// before ImGui::Image is removed and is replaced with ImGui::Dummy,
+					// ImGui::Image reads mSceneDepth.SRVs[0].hGpu.ptr, which 
+					// is no longer texture2d and instead texture2dms.
+				}
+				ImGui::Text("DSV view%s", mScene4xMsaaState ? " (n/a in MSAA)" : "");
+			}ImGui::EndGroup();
+			ImGui::SameLine();
+		}
 		ImGui::BeginGroup(); {
 			ImGui::Image((ImTextureID)mDepthDebugColor.SRVs[0].hGpu.ptr, ImVec2(dim, dim));
 			ImGui::Text("DSV normalized");
@@ -384,7 +396,7 @@ void MCEngine::IMGUI_UPDATE() {
 		if (ImGui::Checkbox("MCScene MSAA", &mScene4xMsaaState)) // slightly unsynced, but gets synced naturally by next round of frames (thus trivial)
 			mSceneSizeDirty = true;
 		ImGui::Text("CPU Frame: %.3f ms", mTimer.DeltaTime() * 1000.0f);
-		ImGui::Text("GPU Frame: %.3f ms", (float)mCurrFrameResource->totalGpuFrameMs);
+		ImGui::Text("GPU Frame: %.3f ms", mGpuTimer.GetAverageMs(0));
 		ImGui::Text("Instancing culling time: %.3f ms", (float)mInstancingCullingTime);
 		static float time = mTimer.TotalTime();
 		static float percentage = (float)mInstancingCullingTime / (mTimer.DeltaTime() * 10.0f);
@@ -393,22 +405,6 @@ void MCEngine::IMGUI_UPDATE() {
 			time = mTimer.TotalTime();
 		}
 		ImGui::Text("Instancing culling ratio : %.1f %%", percentage);
-		if (mProfiler.recording) {
-			float remaining = FrameProfiler::kDuration - mProfiler.timeAccum;
-			ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Recording... %.1fs left", remaining);
-		}
-		else {
-			
-			if (ImGui::Button("Record 5s frame times"))
-			{
-				mProfiler.recording = true;
-				mProfiler.timeAccum = 0.0f;
-				mProfiler.cpuSamples.clear();
-				mProfiler.gpuSamples.clear();
-				for (auto& v : mProfiler.gpuStageSamples)
-					v.clear();
-			}
-		}
 
 		ImGui::Text("ImGui scene Mouse: %d", mSceneImageHovered);
 		ImGui::Text("MCScene ratio: %.0f : %.0f", mSceneViewWidth, mSceneViewHeight);
@@ -438,10 +434,7 @@ void MCEngine::IMGUI_UPDATE() {
 		}
 
 		if (ImGui::CollapsingHeader("Visualization")) {
-			ImGui::Checkbox("Descriptor Heap Manager", &mShowDescHeapViewer);
-			ImGui::Separator();
 			ImGui::Checkbox("Show Bounding Boxes", &mShowBoundingBoxes);
-			
 		}
 		if (ImGui::CollapsingHeader("Camera Settings")) {
 			ImGui::Checkbox("OrthoCamera", &isOrtho);
@@ -528,26 +521,26 @@ void MCEngine::IMGUI_UPDATE() {
 				// DirtyAllRenderItems(); // main pass gets updated regardless, so no need to dirty
 			}
 		}
+		if (ImGui::CollapsingHeader("ImGui Font")) {
+			// Runtime font-scale control. Multiplies the rasterized atlas at draw
+			// time (ImGui 1.92 style.FontScaleMain). DPI-scaled load size is the
+			// 1.0x baseline; this slider stacks on top. Glyphs at non-1.0 are
+			// bilinear-filtered — slightly soft, fine for moderate ranges.
+			ImGui::SetNextItemWidth(160.0f);
+			ImGui::SliderFloat("Font scale", &ImGui::GetStyle().FontScaleMain,
+				0.5f, 2.0f, "%.2fx");
+		}
 	} ImGui::End();
-	ImGui::Begin("Frame Profiles"); {
-		ImGui::Text("GPU Frame (scene color): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[0]);
-		ImGui::Text("GPU Frame (depth debug): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[1]);
-		ImGui::Text("GPU Frame (msaa resolve): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[2]);
-		ImGui::Text("GPU Frame (force alpha): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[3]);
-		ImGui::Text("GPU Frame (blurs): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[4]);
-		ImGui::Text("GPU Frame (sobel): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[5]);
-		ImGui::Text("GPU Frame (switch RT): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[6]);
-		ImGui::Text("GPU Frame (imgui): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[7]);
-		ImGui::Text("GPU Frame (present): %.3f ms", (float)mCurrFrameResource->GpuFrameMs[8]);
-	}ImGui::End();
-
+	IMGUI_FRAMEPROFILE();
+	
 	ImGui::Begin("MCScene Inspector"); 
 	{
 		// --- MCScene switcher ---
 		{
 			MCScene* active = mSceneManager.GetActive();
 			std::string current = active ? active->name : "(none)";
-			if (ImGui::BeginCombo("MCScene", current.c_str())) {
+			ImGui::Text("Choose scene to Activate from pre-loaded pool");
+			if (ImGui::BeginCombo("Scene Pool", current.c_str())) {
 				for (auto& [sceneName, scenePtr] : mSceneManager.All()) {
 					bool selected = (sceneName == current);
 					if (ImGui::Selectable(sceneName.c_str(), selected))
@@ -557,22 +550,16 @@ void MCEngine::IMGUI_UPDATE() {
 				ImGui::EndCombo();
 			}
 		}
+		static bool smAutosaveOnReload = false;
 		if (ImGui::Button("Reload Scene")) {
-			try { ReloadActiveSceneNow(); OutputDebugStringA("[reload] active scene reloaded\n"); }
+			try { ReloadActiveSceneNow(smAutosaveOnReload); OutputDebugStringA("[reload] active scene reloaded\n"); }
 			catch (const std::exception& e) {
 				OutputDebugStringA(("[reload] FAIL: " + std::string(e.what()) + "\n").c_str());
 			}
 		}
 		ImGui::SameLine();
+		ImGui::Checkbox("Autosave on Reload", &smAutosaveOnReload);
 		ImGui::Checkbox("Autosave on switch", &mAutosaveOnSwitch);
-
-		// Runtime font-scale control. Multiplies the rasterized atlas at draw
-		// time (ImGui 1.92 style.FontScaleMain). DPI-scaled load size is the
-		// 1.0x baseline; this slider stacks on top. Glyphs at non-1.0 are
-		// bilinear-filtered — slightly soft, fine for moderate ranges.
-		ImGui::SetNextItemWidth(160.0f);
-		ImGui::SliderFloat("Font scale", &ImGui::GetStyle().FontScaleMain,
-		                   0.5f, 2.0f, "%.2fx");
 		ImGui::Separator();
 		if (auto* active = mSceneManager.GetActive())
 			active->OnImGui(*this);
@@ -581,9 +568,45 @@ void MCEngine::IMGUI_UPDATE() {
 	IMGUI_OUTLINER();
 	IMGUI_INSPECTOR();
 	IMGUI_UPDATE_DESCHEAP_VIEWER();
+	IMGUI_FRAMEGRAPH();
 	IMGUI_TEST();
 
 	ImGui::Render(); // finalizes draw data, does NOT submit to GPU yet
+}
+
+void MCEngine::IMGUI_FRAMEPROFILE() {
+	ImGui::Begin("Frame Profiles"); {
+		const int n = mGpuTimer.RegisteredCount();
+		std::vector<std::pair<float, TimerID>> rows;
+		rows.reserve(n);
+		for (TimerID id = 0; id < (TimerID)n; ++id)
+			rows.emplace_back(mGpuTimer.GetAverageMs(id), id);
+		std::sort(rows.begin(), rows.end(),
+			[](const auto& a, const auto& b) { return a.first > b.first; });
+
+		if (ImGui::BeginTable("gpu_timers", 3,
+			ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
+			ImGui::TableSetupColumn("Pass");
+			ImGui::TableSetupColumn("GPU avg (ms)");
+			ImGui::TableSetupColumn("Trend");
+			ImGui::TableHeadersRow();
+			for (auto& [ms, id] : rows) {
+				ImGui::TableNextRow();
+				ImGui::PushID(static_cast<int>(id));
+				ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(mGpuTimer.Name(id).c_str());
+				ImGui::TableSetColumnIndex(1); ImGui::Text("%.3f", ms);
+				ImGui::TableSetColumnIndex(2);
+				
+				const float* data = mGpuTimer.SamplesData(id);
+				const int head = mGpuTimer.SamplesHead(id);
+				const int count = mGpuTimer.SamplesCount();
+				ImGui::PlotLines("##spark", data, count, head, nullptr,
+					0.0f, FLT_MAX, ImVec2(80, 16));
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+	}ImGui::End();
 }
 
 
@@ -591,7 +614,10 @@ void MCEngine::IMGUI_RENDERDRAWDATA() {
 	// for all resources that will be used in IMGUI::Image, change state to D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE 
 	// mBarrierManager.TransitionState(mSceneColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	mBarrierManager.TransitionState(mViewportNoAlpha, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	if(mIsSobel)
+		mBarrierManager.TransitionState(mSobelOutput, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	if (blurValues.enabled)
+		mBarrierManager.TransitionState(mBlurred0, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	mBarrierManager.TransitionState(mDepthDebugColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	mBarrierManager.FlushBarriers(mCommandList.Get());
 
@@ -615,7 +641,6 @@ void MCEngine::IMGUI_TEST()
 	if (!mShowTestsWindow) return;
 	ImGui::Begin("IMGUI_TESTS");
 	if (ImGui::BeginTabBar("IMGUI_TESTS_TabBar")) {
-
 		if (ImGui::BeginTabItem("JSON round-trip")) {
 			if (ImGui::Button("TestRoundTripFirstItem")) {
 				_requestRoundTripTest = true;
@@ -699,6 +724,15 @@ void MCEngine::IMGUI_TEST()
 					}
 				}
 				ImGui::PopID();
+			}
+			ImGui::EndTabItem();
+		}
+
+		if (ImGui::BeginTabItem("Week5/6 D2")) {
+			if (ImGui::Button("Output(Debug) RenderGraph pass"))
+				mFrameGraph->DumpToOutputDebugString();
+			if (ImGui::Button("Dump aliasing plan")) {
+				mFrameGraph->DumpAliasingPlan([](const char* s) { OutputDebugStringA(s); });
 			}
 			ImGui::EndTabItem();
 		}

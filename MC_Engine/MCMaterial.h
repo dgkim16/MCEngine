@@ -1,8 +1,9 @@
 #pragma once
 
 #include "MCAssetIdentity.h"
-#include "Common/d3dUtil.h"     // gNumFrameResources
+// #include "Common/d3dUtil.h"     // gNumFrameResources
 #include "Common/MathHelper.h"  // Identity4x4()
+#include "ConstExpressionValues.h"
 #include <DirectXMath.h>
 #include <string>
 

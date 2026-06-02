@@ -3,6 +3,9 @@ x64/
 Debug/
 Release/
 
+# old files
+deprec/
+
 # Visual Studio
 .vs/
 *.user

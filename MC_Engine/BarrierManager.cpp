@@ -38,3 +38,20 @@ void BarrierManager::FlushBarriers(ID3D12GraphicsCommandList* cmdList) {
 	cmdList->ResourceBarrier(static_cast<UINT>(mPendingBarriers.size()), mPendingBarriers.data());
 	mPendingBarriers.clear();
 }
+
+void BarrierManager::AliasBarrier(MCResource& current, MCResource& target) {
+	D3D12_RESOURCE_BARRIER bar = {};
+	bar.Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+	bar.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	bar.Aliasing.pResourceBefore = current.mResource.Get();
+	bar.Aliasing.pResourceAfter = target.mResource.Get();
+	mPendingBarriers.push_back(bar);
+	// After an aliasing barrier the activated placed resource is freshly (re)activated
+	// at COMMON — its contents and state are undefined. Compile seeds the transient's
+	// entry transition from COMMON (GetCurrentState on the just-created placed resource),
+	// so the post-alias state must be COMMON for that planned transition to carry the
+	// correct StateBefore. Inheriting the predecessor's state corrupts the before-state
+	// and leaves the resource in COMMON when it is next bound (GBV incompatible-layout).
+	// target.m_currState = D3D12_RESOURCE_STATE_COMMON;
+	// target.m_currState = current.m_currState;
+}

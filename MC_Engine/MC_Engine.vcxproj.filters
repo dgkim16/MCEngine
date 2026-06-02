@@ -40,9 +40,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="ForwardPass.cpp">
-      <Filter>MC_Engine\Pass</Filter>
-    </ClCompile>
     <ClCompile Include="MC_debug.cpp">
       <Filter>MC_Engine</Filter>
     </ClCompile>
@@ -51,9 +48,6 @@
     </ClCompile>
     <ClCompile Include="MCEngine.cpp">
       <Filter>MC_Engine</Filter>
-    </ClCompile>
-    <ClCompile Include="ProfileRecorder.cpp">
-      <Filter>MC_Engine\Profiler</Filter>
     </ClCompile>
     <ClCompile Include="ShaderLib.cpp">
       <Filter>shader_nocompile\shader_cpp</Filter>
@@ -127,9 +121,6 @@
     <ClCompile Include="BarrierManager.cpp">
       <Filter>MC_Engine\BarrierManager</Filter>
     </ClCompile>
-    <ClCompile Include="AuthorScenes.cpp">
-      <Filter>MC_Engine\MC_Scene</Filter>
-    </ClCompile>
     <ClCompile Include="SceneSerialization.cpp">
       <Filter>Core\SceneSerialization</Filter>
     </ClCompile>
@@ -160,9 +151,6 @@
     <ClCompile Include="MCGrassCullingModule.cpp">
       <Filter>MC_Engine\MC_Scene\SceneModules</Filter>
     </ClCompile>
-    <ClCompile Include="MC_AssetTests.cpp">
-      <Filter>MC_Engine</Filter>
-    </ClCompile>
     <ClCompile Include="MC_imgui.cpp">
       <Filter>MC_Engine\MC_imgui</Filter>
     </ClCompile>
@@ -183,6 +171,24 @@
     </ClCompile>
     <ClCompile Include="Includes\imgui\ImGuizmo.cpp">
       <Filter>Core\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="FrameGraph\FrameGraph.cpp">
+      <Filter>MC_Engine\FrameGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="GpuTimer.cpp">
+      <Filter>MC_Engine\GpuTimer</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_AssetTests.cpp">
+      <Filter>TesterConsole</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_RenderPass.cpp">
+      <Filter>MC_Engine\FrameGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="MC_imgui_FrameGraph.cpp">
+      <Filter>MC_Engine\MC_imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="CpuTimer.cpp">
+      <Filter>Core\Timer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -282,9 +288,6 @@
     <ClInclude Include="BarrierManager.h">
       <Filter>MC_Engine\BarrierManager</Filter>
     </ClInclude>
-    <ClInclude Include="AuthorScenes.h">
-      <Filter>MC_Engine\MC_Scene</Filter>
-    </ClInclude>
     <ClInclude Include="SceneSerialization.h">
       <Filter>Core\SceneSerialization</Filter>
     </ClInclude>
@@ -336,23 +339,78 @@
     <ClInclude Include="MCGrassCullingModule.h">
       <Filter>MC_Engine\MC_Scene\SceneModules</Filter>
     </ClInclude>
-    <ClInclude Include="MC_AssetTests.h">
-      <Filter>MC_Engine</Filter>
-    </ClInclude>
     <ClInclude Include="MC_FileDialog.h">
       <Filter>MC_Engine\MC_file</Filter>
     </ClInclude>
     <ClInclude Include="Includes\imgui\ImGuizmo.h">
       <Filter>Core\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="FrameGraph\FrameGraph.h">
+      <Filter>MC_Engine\FrameGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="GpuTimer.h">
+      <Filter>MC_Engine\GpuTimer</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\NoOpPass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="MC_AssetTests.h">
+      <Filter>TesterConsole</Filter>
+    </ClInclude>
+    <ClInclude Include="ConstExpressionValues.h">
+      <Filter>MC_Engine\MC_Types</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\OpaquePass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\OpaqueInstancedPass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\AlphaTestedPass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\AlphaTestedTreeSpritesPass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\MirrorsPass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\ReflectedPass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\TransparentPass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\ShadowPass.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\FrameGraphPasses.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\OpaqueTessellated.h">
+      <Filter>MC_Engine\FrameGraph_Pass</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\LambdaPass.h">
+      <Filter>MC_Engine\FrameGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\RenderPass.h">
+      <Filter>MC_Engine\FrameGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\FgRenderContext.h">
+      <Filter>MC_Engine\FrameGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameGraph\FgBlackboard.h">
+      <Filter>MC_Engine\FrameGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="CpuTimer.h">
+      <Filter>Core\Timer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md">
       <Filter>99_other</Filter>
     </None>
-    <None Include="packages.config">
-      <Filter>99_other</Filter>
-    </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shader_nocompile">
@@ -381,9 +439,6 @@
     </Filter>
     <Filter Include="99_other">
       <UniqueIdentifier>{62a304f5-9dba-41c2-8c26-6e684669c489}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="MC_Engine\Pass">
-      <UniqueIdentifier>{90b31714-642e-4424-acde-3ea56b1e9b10}</UniqueIdentifier>
     </Filter>
     <Filter Include="Core\d3dApp">
       <UniqueIdentifier>{0e23ba4a-b4c7-4e8f-ada6-dfb790484a44}</UniqueIdentifier>
@@ -433,6 +488,18 @@
     <Filter Include="MC_Engine\MC_file">
       <UniqueIdentifier>{eac4b92b-50b5-4fca-8f48-26e7979e07b3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MC_Engine\FrameGraph">
+      <UniqueIdentifier>{c37fa5c5-bf2f-4f82-98f2-aa1ef3db6840}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\GpuTimer">
+      <UniqueIdentifier>{006b2057-30e3-4816-ac4c-830b269191e8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\MC_Pass">
+      <UniqueIdentifier>{90b31714-642e-4424-acde-3ea56b1e9b10}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MC_Engine\FrameGraph_Pass">
+      <UniqueIdentifier>{8083353d-2789-4012-9d19-44f68c990dd2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Image Include="MC.ico">
@@ -443,5 +510,10 @@
     <ResourceCompile Include="MC_main.rc">
       <Filter>99_other</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="FrameGraph\FgTypes.h">
+      <Filter>MC_Engine\FrameGraph</Filter>
+    </Text>
   </ItemGroup>
 </Project>

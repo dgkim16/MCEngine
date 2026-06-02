@@ -90,7 +90,7 @@
     <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(PIXEventRuntime);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(SolutionDir)FrameGraph;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -98,7 +98,7 @@
     <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(PIXEventRuntime);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(SolutionDir)FrameGraph;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -108,6 +108,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -129,7 +130,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions);MC_AUTHOR_SCENES_ONCE</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -152,6 +153,7 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -173,7 +175,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions);MC_AUTHOR_SCENES_ONCE</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -200,8 +202,10 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Assets\Shaders\SharedTypes.h" />
-    <ClInclude Include="AuthorScenes.h" />
+    <ClInclude Include="Assets\Shaders\SharedTypes.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="BarrierManager.h" />
     <ClInclude Include="Common\Camera.h" />
     <ClInclude Include="Common\d3dApp.h" />
@@ -213,8 +217,27 @@
     <ClInclude Include="Common\GeometryGenerator.h" />
     <ClInclude Include="Common\MathHelper.h" />
     <ClInclude Include="Common\UploadHelper.h" />
+    <ClInclude Include="ConstExpressionValues.h" />
+    <ClInclude Include="CpuTimer.h" />
     <ClInclude Include="DescHeapManager.h" />
+    <ClInclude Include="FrameGraph\AlphaTestedPass.h" />
+    <ClInclude Include="FrameGraph\AlphaTestedTreeSpritesPass.h" />
+    <ClInclude Include="FrameGraph\FgBlackboard.h" />
+    <ClInclude Include="FrameGraph\FgRenderContext.h" />
+    <ClInclude Include="FrameGraph\FrameGraph.h" />
+    <ClInclude Include="FrameGraph\FrameGraphPasses.h" />
+    <ClInclude Include="FrameGraph\LambdaPass.h" />
+    <ClInclude Include="FrameGraph\MirrorsPass.h" />
+    <ClInclude Include="FrameGraph\NoOpPass.h" />
+    <ClInclude Include="FrameGraph\OpaqueInstancedPass.h" />
+    <ClInclude Include="FrameGraph\OpaquePass.h" />
+    <ClInclude Include="FrameGraph\OpaqueTessellated.h" />
+    <ClInclude Include="FrameGraph\ReflectedPass.h" />
+    <ClInclude Include="FrameGraph\RenderPass.h" />
+    <ClInclude Include="FrameGraph\ShadowPass.h" />
+    <ClInclude Include="FrameGraph\TransparentPass.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GpuTimer.h" />
     <ClInclude Include="Includes\imgui\imconfig.h" />
     <ClInclude Include="Includes\imgui\imgui.h" />
     <ClInclude Include="Includes\imgui\ImGuizmo.h" />
@@ -255,7 +278,6 @@
     <ClInclude Include="TesterConsole.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="AuthorScenes.cpp" />
     <ClCompile Include="BarrierManager.cpp" />
     <ClCompile Include="Common\Camera.cpp" />
     <ClCompile Include="Common\d3dApp.cpp" />
@@ -267,8 +289,10 @@
     <ClCompile Include="Common\GameTimer.cpp" />
     <ClCompile Include="Common\GeometryGenerator.cpp" />
     <ClCompile Include="Common\MathHelper.cpp" />
+    <ClCompile Include="CpuTimer.cpp" />
     <ClCompile Include="DescHeapManager.cpp" />
-    <ClCompile Include="ForwardPass.cpp" />
+    <ClCompile Include="FrameGraph\FrameGraph.cpp" />
+    <ClCompile Include="GpuTimer.cpp" />
     <ClCompile Include="Includes\imgui\imgui.cpp" />
     <ClCompile Include="Includes\imgui\ImGuizmo.cpp" />
     <ClCompile Include="Includes\imgui\imgui_demo.cpp" />
@@ -297,14 +321,15 @@
     <ClCompile Include="MC_FileDialog.cpp" />
     <ClCompile Include="MC_imgui.cpp" />
     <ClCompile Include="MC_imgui_DescHeapVis.cpp" />
+    <ClCompile Include="MC_imgui_FrameGraph.cpp" />
     <ClCompile Include="MC_imgui_InspectorPanel.cpp" />
     <ClCompile Include="MC_imgui_Menubar.cpp" />
     <ClCompile Include="MC_imgui_outliner.cpp" />
+    <ClCompile Include="MC_RenderPass.cpp" />
     <ClCompile Include="MC_Picker.cpp" />
     <ClCompile Include="MC_PipelineManager.cpp" />
     <ClCompile Include="modelLoader.cpp" />
     <ClCompile Include="CBFreeList.cpp" />
-    <ClCompile Include="ProfileRecorder.cpp" />
     <ClCompile Include="SceneSerialization.cpp" />
     <ClCompile Include="ShaderLib.cpp" />
     <ClCompile Include="ShaderLibDx.cpp" />
@@ -321,55 +346,82 @@
     <FxCompile Include="Assets\Shaders\color.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\blursCS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\debugLine.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\depthDebug.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\ForceAlpha.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\Grass.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\GrassCull.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\hlslUtilities.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\lighting.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\SobelCS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\Tessellation.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\TreeBillboard.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="FrameGraph\FgTypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -33,6 +33,7 @@
 // excluding d3dx12.h has no effect, so it is commented out for now.
 // #include "d3dx12.h" 
 
+// #include "ConstExpressionValues.h" // gNumFrameResources
 
 class d3dUtil
 {
@@ -121,7 +122,7 @@ inline std::wstring AnsiToWString(const std::string& str)
 // Vertex / SubmeshGeometry / MeshGeometry moved to MC_Engine/MCVertex.h and
 // MC_Engine/MCMeshGeometry.h. Frank Luna's framework header now contains only
 // framework-layer utilities.
-const int gNumFrameResources = 3;
+// const int gNumFrameResources = 3;
 
 
 static const std::array<const char*, 7> FresnelR0_items =

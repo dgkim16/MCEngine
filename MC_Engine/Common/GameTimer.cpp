@@ -126,7 +126,7 @@ void GameTimer::Tick()
 }
 
 float GameTimer::GetmSecondsPerCount() {
-	return mSecondsPerCount;
+	return static_cast<float>(mSecondsPerCount);
 }
 
 using clock_type = std::chrono::steady_clock;

@@ -1,6 +1,6 @@
 #include "MCEngine.h"
 #include "ShaderLib.h"
-
+#include <cassert>
 void MCEngine::BuildRootSignature()
 {
 	CD3DX12_DESCRIPTOR_RANGE texTable0;
@@ -185,41 +185,13 @@ void MCEngine::BuildPSOs()
 		ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
 	}
 	RegisterPSOVariants("opaque", opaquePsoDesc, true, true);
-	/*
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDescMSAA = opaquePsoDesc;
-	opaquePsoDescMSAA.SampleDesc.Count = 4;
-	opaquePsoDescMSAA.SampleDesc.Quality = m4xMsaaQuality - 1;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaquePsoDescMSAA, IID_PPV_ARGS(&mPSOs["opaque_MSAA"])));
 
-	// PSO for opaque wireframe objects.
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueWireframePsoDesc = opaquePsoDesc;
-	{
-		opaqueWireframePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-		ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaqueWireframePsoDesc, IID_PPV_ARGS(&mPSOs["opaque_wireframe"])));
-	}
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueWireframePsoDescMSAA = opaquePsoDescMSAA;
-	opaqueWireframePsoDescMSAA.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaqueWireframePsoDescMSAA, IID_PPV_ARGS(&mPSOs["opaque_wireframe_MSAA"])));
-	*/
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueInstancedPsoDesc = opaquePsoDesc;
 	opaqueInstancedPsoDesc.VS = GETBYTE(mShaders["instancedVS"]);
 	opaqueInstancedPsoDesc.PS = GETBYTE(mShaders["instancedPS"]);
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaqueInstancedPsoDesc, IID_PPV_ARGS(&mPSOs["opaque_instanced"])));
 	RegisterPSOVariants("opaque_instanced", opaqueInstancedPsoDesc, true, true);
-	/*
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueInstancedPsoDescMSAA = opaqueInstancedPsoDesc;
-	opaqueInstancedPsoDescMSAA.SampleDesc = opaquePsoDescMSAA.SampleDesc;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaqueInstancedPsoDescMSAA, IID_PPV_ARGS(&mPSOs["opaque_instanced_MSAA"])));
 
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueWireframeInstancedPsoDesc = opaqueInstancedPsoDesc;
-	opaqueWireframeInstancedPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaqueWireframeInstancedPsoDesc, IID_PPV_ARGS(&mPSOs["opaque_instanced_wireframe"])));
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueWireframeInstancedPsoDescMSAA = opaqueInstancedPsoDescMSAA;
-	opaqueWireframeInstancedPsoDescMSAA.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaqueWireframeInstancedPsoDescMSAA, IID_PPV_ARGS(&mPSOs["opaque_instanced_wireframe_MSAA"])));
-	*/
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueInstancedTessPsoDesc = opaqueInstancedPsoDesc;
 	opaqueInstancedTessPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH;
 	opaqueInstancedTessPsoDesc.VS = GETBYTE(mShaders["instancedTessVS"]);
@@ -269,29 +241,13 @@ void MCEngine::BuildPSOs()
 		ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&alphaTestedPsoDesc, IID_PPV_ARGS(&mPSOs["alphaTested"])));
 	}
 	RegisterPSOVariants("alphaTested", alphaTestedPsoDesc, true);
-	/*
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaTestedPsoDescMSAA = alphaTestedPsoDesc;
-	alphaTestedPsoDescMSAA.SampleDesc = opaquePsoDescMSAA.SampleDesc;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&alphaTestedPsoDescMSAA, IID_PPV_ARGS(&mPSOs["alphaTested_MSAA"])));
-	*/
+
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaTestedInstancedPsoDesc = alphaTestedPsoDesc;
 	alphaTestedInstancedPsoDesc.VS = GETBYTE(mShaders["instancedVS"]);
 	alphaTestedInstancedPsoDesc.PS = GETBYTE(mShaders["instancedPS"]);
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&alphaTestedInstancedPsoDesc, IID_PPV_ARGS(&mPSOs["alphaTested_instanced"])));
 	RegisterPSOVariants("alphaTested_instanced", alphaTestedInstancedPsoDesc, true, true);
-	/*
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaTestedInstancedPsoDescMSAA = alphaTestedInstancedPsoDesc;
-	alphaTestedInstancedPsoDescMSAA.SampleDesc = opaquePsoDescMSAA.SampleDesc;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&alphaTestedInstancedPsoDescMSAA, IID_PPV_ARGS(&mPSOs["alphaTested_instanced_MSAA"])));
 
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaTestedWireframeInstancedPsoDesc = alphaTestedInstancedPsoDesc;
-	alphaTestedWireframeInstancedPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&alphaTestedWireframeInstancedPsoDesc, IID_PPV_ARGS(&mPSOs["alphaTested_instanced_wireframe"])));
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaTestedWireframeInstancedPsoDescMSAA = alphaTestedInstancedPsoDescMSAA;
-	alphaTestedWireframeInstancedPsoDescMSAA.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&alphaTestedWireframeInstancedPsoDescMSAA, IID_PPV_ARGS(&mPSOs["alphaTested_instanced_wireframe_MSAA"])));
-	*/
 	// PSO for depth debug
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC depthDebugPsoDesc = {};
 	{
@@ -512,6 +468,12 @@ void MCEngine::BuildPSOs()
 		debugLinePsoDesc.SampleDesc.Count     = 1;
 		debugLinePsoDesc.SampleDesc.Quality   = 0;
 		debugLinePsoDesc.DSVFormat            = mDepthStencilFormat;
+
+		assert(mDebugLineRootSig && "mDebugLineRootSig is null");
+		assert(mShaders["debugLineVS"] && "debugLineVS not compiled");
+		assert(mShaders["debugLinePS"] && "debugLinePS not compiled");
+		assert(!mInputLayout["debug_line"].empty() && "debug_line input layout not registered");
+
 		ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&debugLinePsoDesc, IID_PPV_ARGS(&mPSOs["debug_line"])));
 
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC debugLineMSAA = debugLinePsoDesc;

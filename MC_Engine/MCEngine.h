@@ -15,16 +15,20 @@
 #include "MCTextureManager.h"
 #include "MCMeshSourceManager.h"
 #include "MCGrassCullingModule.h"
-
+#include "GpuTimer.h"
+#include "CpuTimer.h"
+#include "ConstExpressionValues.h" // gNumFrameResources
+#include "FrameGraph/FrameGraph.h"
+#include "FrameGraph/RenderPass.h"
 #include <set>
 #include <vector>
 #include <string>
 #include <unordered_map>
 #include <memory>
-
+#define NOMINMAX // required to use `std::min` when `Windows.h` is also included
 using namespace DirectX;
 
-extern const int gNumFrameResources;
+// extern const int gNumFrameResources;
 
 struct CSB_blurValues // blur related values changed via imgui — CPU-only, not GPU-facing
 {
@@ -63,12 +67,23 @@ public:
 	MCSceneManager& Scenes() { return mSceneManager; }
 	const MCSceneManager& Scenes() const { return mSceneManager; }
 
+	// --- FrameGraph (non-lambda RenderPass inheritance)
+	FrameGraph& GetFrameGraph() { return *mFrameGraph; }
+	const FrameGraph& GetFrameGraph() const { return *mFrameGraph; }
+	MCTextureResource& SceneColor() { return mSceneColor; }
+	MCTextureResource& SceneDepth() { return mSceneDepth; }
+	bool IsWireFrame() const { return mIsWireframe; }
+	bool IsMsaa() const { return mScene4xMsaaState; }
+	void DrawLayer(ID3D12GraphicsCommandList* cmdList,RenderLayer layer, std::string pixEventName = "");
+	void DrawInstancedLayer(ID3D12GraphicsCommandList* cmdList,RenderLayer layer, bool useGrass = false, std::string pixEventName = "");
+	friend class DebugLinePass; // too many private variables needed. just set as friend.
+
 	// D9 Step 5a — bracket the cmdlist around MCSceneManager::Reload so module
 	// OnLoad calls (e.g. MCGrassCullingModule's GPU instance buffer upload) can
 	// record commands. Safe to call from ImGui handlers (cmdlist closed at that
 	// phase). Always returns the cmdlist to the closed state Draw expects, even
 	// on exception.
-	void ReloadActiveSceneNow();
+	void ReloadActiveSceneNow(bool save = false);
 	void RequestReload() { reloadScene = true; }
 	void MarkSceneDirty() { mSceneDirty = true; }	// every module's OnImGui slider that mutates scene-serialized state must call this - Generalize for any future module's OnImGui.
 
@@ -126,9 +141,7 @@ private:
 	virtual void Draw(const GameTimer& gt)override;
 
 	// custom draw Passes
-	virtual void ForwardPass(const GameTimer& gt);
-	virtual void TessellationExample(const GameTimer& gt);
-	// virtual void ComputePass(float gt); // after forward pass
+	void InitializeRenderPass();
 
 	virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
 	virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
@@ -142,8 +155,6 @@ private:
 	void UpdateMainPassCB(const GameTimer& gt);
 	void UpdateMaterialCBs(const GameTimer& gt);
 	void UpdateDepthDebugCB(const GameTimer& gt);
-	void UpdateBlurCB(const GameTimer& gt);
-	void UpdateSobelCB(const GameTimer& gt);
 
 	void BuildDescriptorHeaps();	// create descriptor heap for cbv
 	void BuildConstantBufferViews(); // ch7 - replaced BuildConstantBuffer with BuildConstantBufferViews
@@ -167,6 +178,8 @@ private:
 	void IMGUI_INSPECTOR();
 	void IMGUI_MENUBAR();
 	void IMGUI_TEST();
+	void IMGUI_FRAMEPROFILE();
+	void IMGUI_FRAMEGRAPH();
 	RenderItem* CurrentSelectedItem() const;
 	LRESULT IMGUI_WNDMSGHANDLER(HWND& hwnd, UINT& msg, WPARAM& wParam, LPARAM& lParam);
 	void IMGUI_SHUTDOWN();
@@ -180,9 +193,6 @@ private:
 	void FileMenuCreateScene();
 	void FileMenuCreateMaterial();
 
-	void ReadBackGpuTimer(float dt);
-	void TickProfiler(float dt);
-
 	// rendering to texture
 	void BuildSceneRenderTarget();
 	void BuildSceneRenderTargetDescriptors();
@@ -194,16 +204,18 @@ private:
 	UINT BuildDebugLineGeometry();
 
 	float sceneAspectRatio();
-	void PrintRenderItemInLayers();
 	std::vector<float> CalcGaussWeights(float sigma);
 
 private:
 	BarrierManager mBarrierManager;
+	// --- FrameGraph
+	std::unique_ptr<FrameGraph> mFrameGraph;
+	std::vector<std::unique_ptr<RenderPass>> mPasses;
 
 	//! START- for rendering to Texture instead of directly to back buffer
 	MCTextureResource mSceneColor, mSceneDepth, mDepthDebugColor;
-	MCTextureResource mViewportColor, mViewportNoAlpha;
-	MCTextureResource mBlurred0, mBlurred1;
+	MCTextureResource mViewportNoAlpha; // , mViewportColor
+	MCTextureResource mBlurred0; // mBlurred1;
 	MCTextureResource mSobelOutput;
 
 	DXGI_FORMAT mSceneFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -227,7 +239,7 @@ private:
 	// allocates a NEW atlas slot before freeing the old, so capacity must
 	// exceed the live texture count by at least 1.
 	static constexpr int kCsuReservedHead = 16;
-	static constexpr int kCsuTierDynamicCap = 0;      // raise when first dynamic use lands
+	static constexpr int kCsuTierDynamicCap = 64;     // FrameGraph transient SRV/UAVs: ~(live transients)*(SRV+UAV)*(NumFrameResources+1); 64 leaves migration headroom
 	static constexpr int kCsuTierStaticHeadroom = 64; // covers asset textures + post-process SRVs/UAVs + headroom
 	int mCsuTierStaticCap = 0;                        // = kCsuTierStaticHeadroom, set in BuildDescriptorHeaps
 
@@ -239,6 +251,7 @@ private:
 	float mSceneViewWidth = 800.0f;
 	float mSceneViewHeight = 600.0f;
 	bool mSceneSizeDirty = false; // just mSceneDirty
+	// int mSceneSizeDirty = gNumFrameResources;
 
 	bool mSceneImageSelected = false;
 	bool mSceneImageHovered = false;
@@ -268,6 +281,10 @@ private:
 	MCTextureManager mTextureManager;
 	MCMeshSourceManager mMeshSourceManager;
 	MCSceneManager mSceneManager;
+	GpuTimer mGpuTimer;
+	CpuTimer mCpuTimer;
+
+
 
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 
@@ -305,7 +322,7 @@ private:
 	int mDepthDebugFramesDirty = gNumFrameResources;
 	float mDepthDebugMax = 100.0f;
 
-	bool blurDirty = false;
+	bool blurDirty = true;
 	CSB_blurValues blurValues;
 
 	bool mIsSobel = false;
@@ -315,15 +332,6 @@ private:
 		Depth,
 		Count
 	} mSobelType = SobelType::Gaussain;
-
-	struct FrameProfiler {
-		bool        recording = false;
-		float       timeAccum = 0.0f;
-		static constexpr float kDuration = 5.0f;
-		std::vector<double> cpuSamples;
-		std::vector<double> gpuSamples;
-		std::array<std::vector<double>, FrameResource::GpuTimerCount - 1> gpuStageSamples;
-	} mProfiler;
 
 	bool enableBoundsCheck = true;
 	int cameraDirtyCount = 0;
@@ -347,8 +355,10 @@ private:
 
 	bool reloadScene = false;
 	bool mSceneDirty = false;
-	std::filesystem::path mCurrentScenePath;
-	
+	// (mCurrentScenePath removed — MCSceneManager::mScenePaths is the single
+	// source of truth for the active scene's save path. Retrieve via
+	// mSceneManager.GetScenePath(mSceneManager.GetActive()->name) at use sites.)
+
 
 public:
 	// --- MCScene management proxy (D8 D-2) ---
@@ -377,7 +387,7 @@ public:
 private:
 
 	// VSync
-	bool enableVsync = true;
+	bool enableVsync = false;
 
 	float mInstancingCullingTime = 0.0f;
 
@@ -386,6 +396,7 @@ private:
 
 	// --- ImGui UI set values
 	bool mShowDescHeapViewer = false;
+	bool mShowFrameGraphViewer = false;
 	bool mShowTestsWindow = false;
 
 	// --- _requestRoundTripTest stays on engine; ImGui button at MC_imgui.cpp:502

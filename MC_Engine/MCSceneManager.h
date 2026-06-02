@@ -27,7 +27,7 @@ public:
 
 	void Switch(const std::string& name);
 	void RequestSwitch(const std::string& name) { mPendingSwitch = name; }
-	void Reload();
+	void Reload(bool save = false);
 
 	// Boot-time path: MCEngine::Initialize loads the first scene with the cmd list still
 	// open (subsequent Build* calls share the list). That path can't go through Switch

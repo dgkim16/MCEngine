@@ -3,7 +3,6 @@
 #include "MCAssetIdentity.h"
 #include "imgui.h"
 #include "MCScene.h"
-#include <pix3.h>
 #include <DirectXMath.h>
 #include <random>
 #include <numeric>
@@ -32,14 +31,15 @@ void MCGrassCullingModule::OnUpdate(MCEngine& engine, MCScene& scene, float dt) 
 
 }
 
+// entire code was moved into ExecuteFn of FrameGraph's lambda pass 'GrassCullDispatch'
 void MCGrassCullingModule::OnDraw(MCEngine& engine, MCScene& scene) {
+	return;
+	// entire logic moved to RenderPass
 	if (!useGpuCulling) return;
 	auto* mCommandList = engine.GetCmdList();
 	auto& mBarrierManager = engine.GetBarrierManager();
 	auto& mMainPassCB = engine.GetMainPassCB();
 	auto vp = mMainPassCB.gViewProj;
-
-	PIXBeginEvent(mCommandList, PIX_COLOR(0, 200, 100), "Grass Cull CS");
 
 	// 1. Reset counter to 0 (counterReset is GENERIC_READ, counter is COPY_DEST)
 	// note that actual counter is GPU-memory (default heap), so to update it
@@ -162,8 +162,6 @@ void MCGrassCullingModule::OnDraw(MCEngine& engine, MCScene& scene) {
 	mBarrierManager.TransitionState(mGrassCounterBuffer, D3D12_RESOURCE_STATE_COPY_DEST);
 	mBarrierManager.TransitionState(mGrassIndirectArgsBuffer, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 	mBarrierManager.FlushBarriers(engine.GetCmdList());
-
-	PIXEndEvent(engine.GetCmdList());
 }
 
 void MCGrassCullingModule::OnImGui(MCEngine& engine, MCScene& scene) {
