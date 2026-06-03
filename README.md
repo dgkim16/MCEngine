@@ -11,13 +11,14 @@ A DirectX 12 rendering engine I am building to learn low-level graphics engine a
 
 ## Features
 
-- Forward renderer with per-layer PSO binning across eight render layers (Opaque, Mirrors, Reflected, Transparent, AlphaTested, Shadow, AlphaTestedTreeSprites, OpaqueTessellated).
 - Runtime HLSL compilation targeting Shader Model 6.x through DXC, with an on-disk shader cache keyed by source path and entry point.
-- Post-processing compute chain: separable Gaussian blur, Sobel edge detection, and an alpha-fixup pass before present.
+- FrameGraph that orchestrates each frame as a graph of Render passes (per-frame pass culling, transient creation and aliasing).
+- Per-layer PSO binning across eight render layers (Opaque, Mirrors, Reflected, Transparent, AlphaTested, Shadow, AlphaTestedTreeSprites, OpaqueTessellated).
+- Post-processing Render passes that uses Compute Shaders via `dispatch` calls. (i.e. Blur, Sobel)
 - Assimp-driven model import through a thin wrapper (`Common/MyImporter.h`).
 - In-engine ImGui toolchain on the docking branch, including a live descriptor-heap visualizer.
 - Explicit resource state-transition batching through `BarrierManager`.
-- Stable, predictable GPU descriptor indices through `DescHeapManager`.
+- Stable, predictable GPU descriptor indices through `DescHeapManager` that are dynamicity-tiered.
 
 ## Build and run
 
@@ -52,6 +53,7 @@ The build copies `dxcompiler.dll`, `dxil.dll`, and the Assimp runtime next to th
 ├── MC_Engine/
 │   ├── Assets/                  # HLSL shaders, DDS textures, fonts, models
 │   ├── Common/                  # Base D3D12 framework (D3DApp, FrameResource, GeometryGenerator)
+│   ├── FrameGraph/              # FrameGraph & Render Pass source files (FrameGraph*, Fg*, *Pass)
 │   ├── Includes/                # Vendored headers: Assimp, DXC, ImGui
 │   ├── Libs/                    # Vendored static libs
 │   ├── dll files/               # Runtime DLLs copied next to the EXE
@@ -87,21 +89,15 @@ The engine is layered.
 
 `MC_Engine/BarrierManager.cpp` — batches `D3D12_RESOURCE_BARRIER` records and flushes them at sync boundaries instead of emitting transitions per call site. Eliminates redundant transitions and avoids interleaved submission patterns the driver handles poorly. Current scope is intentionally narrow; broader resource-lifetime abstraction is on the roadmap.
 
-### Post-processing compute chain
+### FrameGraph
 
-Three compute shaders run after the forward pass:
-
-- `Assets/Shaders/blursCS.hlsl` — separable Gaussian blur. Horizontal and vertical passes; sigma and iteration count exposed to the UI.
-- `Assets/Shaders/SobelCS.hlsl` — 3×3 Sobel edge detection over the blurred result.
-- `Assets/Shaders/ForceAlpha.hlsl` — alpha-channel fixup for the final composite.
-
-Each stage writes to a UAV; the final stage writes the swap-chain back buffer before present.
+`MC_Engine/FrameGraph/FrameGraph.cpp` — orchestrates the frame as a graph of passes rather than a hand-ordered command sequence. Each `RenderPass` declares the resources it reads and writes in a `Setup` step; `Compile` derives execution order from those declarations, culls passes whose outputs go unused, computes transient-resource lifetimes, and aliases their memory (greedy interval coloring per heap class) so short-lived targets share allocations. `Execute` then replays the passes, inserting every state transition through `BarrierManager` and wrapping each pass in a PIX and GPU-timer scope. Adding a pass no longer means re-reasoning about global ordering and barriers — the pass states its own reads and writes, and the graph does the rest. Active workstream: it already subsumes the post-processing compute chain (Gaussian blur, Sobel, alpha fixup) and is migrating geometry off the legacy `MCEngine::ForwardPass`; the two paths coexist until that completes.
 
 ## Roadmap
 
-Three phases against a v1.0 target.
+Three phases against a v3.0 target.
 
-### Phase 1 — Foundations *(in progress)*
+### Phase 1 — Foundations 
 
 Instrumentation and abstractions every later phase assumes. The first two items have shipped; the remainder is the active work surface.
 
@@ -109,9 +105,9 @@ Instrumentation and abstractions every later phase assumes. The first two items 
 - ✓ JSON scene serialization. Content-hashed 64-bit asset handles back render-item references; `MCMaterialManager` / `MCMeshSourceManager` / `MCTextureManager` own asset lifecycle; `migrations.json` resolves renames at load. Save, close, reopen, load → the scene is identical, and a hand-edit to the JSON survives a reload.
 - ✓ ImGui scene editor surface — outliner + inspector + file menu (New / Open / Save / Save As) + ImGuizmo translation gizmo.
 - ✓ GPU timestamp queries feeding rolling averages into ImGui UI. Every major pass reports GPU milliseconds. ~~cross-checked against PIX.~~
-- Frame graph (render graph). Passes declare reads and writes; the graph computes execution order, transient-resource lifetimes (with aliasing), and barrier insertion automatically (using `BarrierManager`). Replaces hand-batched pass scheduling in `MCEngine::ForwardPass` and the post-process compute chain. In flight.
+- ✓ Frame graph (render graph). Passes declare reads and writes; the graph computes execution order, transient-resource lifetimes (with aliasing), and barrier insertion automatically (using `BarrierManager`). Replaces hand-batched pass scheduling in `MCEngine::ForwardPass` and the post-process compute chain.
 
-### Phase 2 — Visual quality
+### Phase 2 — Visual quality *(in progress)*
 
 - Cook-Torrance metallic-roughness PBR, validated against Filament's matball at matched inputs.
 - Image-based lighting: diffuse irradiance cubemap, specular prefilter, BRDF LUT.
@@ -136,6 +132,11 @@ Instrumentation and abstractions every later phase assumes. The first two items 
 - Microsoft **DirectX-Graphics-Samples** — DXC usage and bindless patterns.
 - Jason Gregory, *Game Engine Architecture* — subsystem decomposition.
 - Fabian Giesen, *The ryg blog* — GPU-side reasoning and micro-architecture intuition. https://fgiesen.wordpress.com/
+- Yuriy O'Donnell, *FrameGraph: Extensible Rendering Architecture in Frostbite* — Frame Graph design patterns https://www.gdcvault.com/play/1024612/FrameGraph-Extensible-Rendering-Architecture-in
+
+# Sources
+- 다람디.obj / .dds — 3d model and texuture generated via Meshy.ai using character from [arca.live](https://arca.live/e/50851?target=title&keyword=%EB%8B%A4%EB%9E%8C%EB%94%94&p=1) emoji.
+- all other textures files — directly taken from Frank Luna's demo samples.
 
 ## License
 MIT.
