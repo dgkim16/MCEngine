@@ -35,3 +35,6 @@ __pycache__/
 
 # VSCode personal prefs
 .vscode/
+
+# Local scratch sources, never committed
+MC_Engine/Source/TEMP/
