@@ -243,6 +243,20 @@ Instrumentation and abstractions every later item assumes. All items have shippe
 - Jason Gregory, *Game Engine Architecture* — subsystem decomposition.
 - Fabian Giesen, *The ryg blog* — GPU-side reasoning and micro-architecture intuition. https://fgiesen.wordpress.com/
 - Yuriy O'Donnell, *FrameGraph: Extensible Rendering Architecture in Frostbite* — Frame Graph design patterns https://www.gdcvault.com/play/1024612/FrameGraph-Extensible-Rendering-Architecture-in
+- Michael Wimmer, Daniel Scherzer, Werner Purgathofer, *Light Space Perspective Shadow Maps* (EGSR 2004) — the LiSPSM warp and its n_opt parameter.
+- Marc Stamminger, George Drettakis, *Perspective Shadow Maps* (SIGGRAPH 2002) — the PSM path kept in `MCLight.cpp` for comparison.
+- OGRE's LiSPSM shadow camera setup — fading the warp out as the view turns parallel to the light. https://github.com/OGRECave/ogre
+- DigiPen CS529 engine framework — the `Engine` / system / entity–component / `Stream` structure the architecture refactor follows; reference implementation https://github.com/RyanXu02/CS529-Engine-Project
+
+### Third-party libraries
+
+- [Dear ImGui](https://github.com/ocornut/imgui) (docking branch) and [ImGuizmo](https://github.com/CedricGuillemet/ImGuizmo) — editor UI and gizmo.
+- [Assimp](https://github.com/assimp/assimp) — OBJ model import.
+- [DirectX Shader Compiler (DXC)](https://github.com/microsoft/DirectXShaderCompiler) — runtime HLSL compilation.
+- [nlohmann/json](https://github.com/nlohmann/json) — scene and asset serialization.
+- [xxHash](https://github.com/Cyan4973/xxHash) — 64-bit asset handles.
+- [WinPixEventRuntime](https://www.nuget.org/packages/WinPixEventRuntime) — PIX CPU/GPU event markers.
+- Microsoft's `DDSTextureLoader` and `d3dx12.h` helpers, as shipped with Frank Luna's samples (current versions: [DirectXTK12](https://github.com/microsoft/DirectXTK12), [DirectX-Headers](https://github.com/microsoft/DirectX-Headers)).
 
 # Sources
 - 다람디.obj / .dds — 3d model and texuture generated via Meshy.ai using character from [arca.live](https://arca.live/e/50851?target=title&keyword=%EB%8B%A4%EB%9E%8C%EB%94%94&p=1) emoji.
