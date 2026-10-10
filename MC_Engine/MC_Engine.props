@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Settings shared by every configuration of MC_Engine.vcxproj. -->
+  <PropertyGroup>
+    <IncludePath>$(MSBuildThisFileDirectory)Source;$(MSBuildThisFileDirectory)Includes;$(MSBuildThisFileDirectory)Includes\imgui;$(MSBuildThisFileDirectory)Includes\xxhash;$(MSBuildThisFileDirectory)Assets\Shaders;$(IncludePath)</IncludePath>
+    <LibraryPath>$(MSBuildThisFileDirectory)Libs\Any;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <!-- Layering audit: a violation of an enforced rule fails the build. -->
+    <PreBuildEvent>
+      <Command>powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$(MSBuildThisFileDirectory)Tools\audit.ps1"</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy /Y "$(MSBuildThisFileDirectory)dll files\dxcompiler.dll" "$(OutDir)dxcompiler.dll" || exit /b 1
+copy /Y "$(MSBuildThisFileDirectory)dll files\dxil.dll" "$(OutDir)dxil.dll" || exit /b 1</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <Link>
+      <AdditionalDependencies>assimp-vc143-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>%(Command)
+copy /Y "$(MSBuildThisFileDirectory)dll files\assimp-vc143-mtd.dll" "$(OutDir)assimp-vc143-mtd.dll" || exit /b 1</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <Link>
+      <AdditionalDependencies>assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>%(Command)
+copy /Y "$(MSBuildThisFileDirectory)dll files\assimp-vc143-mt.dll" "$(OutDir)assimp-vc143-mt.dll" || exit /b 1</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+</Project>

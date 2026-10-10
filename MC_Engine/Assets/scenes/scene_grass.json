@@ -28,8 +28,8 @@
     {
       "params": {
         "equalColor": true,
-        "grassCountDepth": 280,
-        "grassCountWidth": 286,
+        "grassCountDepth": 299,
+        "grassCountWidth": 314,
         "grassCoverageDepth": 110.69000244140625,
         "grassCoverageWidth": 114.61000061035156,
         "grassRitemName": "quad",

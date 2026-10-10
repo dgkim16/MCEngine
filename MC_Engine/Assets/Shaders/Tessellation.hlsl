@@ -1,7 +1,10 @@
-#define HLSL 1
-Texture2D gNormalMap : register(t0);
+#define HLSL_CODE 1 
+#include "SharedTypes.h"
+// Texture2D gNormalMap : register(t0);
 SamplerState gsamLinear : register(s0);
-
+StructuredBuffer<InstanceData> gObjectData : register(t2);
+StructuredBuffer<LightData> gLightData : register(t3);
+/*
 cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
@@ -40,7 +43,7 @@ cbuffer matPass0 : register(b2)
     float gRoughness;
     float4x4 gMatTransform;
 }
-
+*/
 cbuffer tellPass : register(b3)
 {
     int gOuterTessFactor = 1;
@@ -48,12 +51,14 @@ cbuffer tellPass : register(b3)
 }
 
 #ifdef DRAW_INSTANCED
+/*
 struct InstanceData
 {
     float4x4 World;
     float4x4 TexTransform;
     uint MaterialIndex;
 };
+*/
 StructuredBuffer<InstanceData> gInstanceData : register(t1);
 #endif
 
@@ -69,6 +74,7 @@ struct VertexOut
     float3 PosL : POSITION;
     float3 NormalL : NORMAL;
     float2 TexC : TEXCOORD;
+    
 #ifdef DRAW_INSTANCED
     uint InstID : INSTANCEID;
 #endif
@@ -108,7 +114,7 @@ PatchTess DistanceHS(InputPatch<VertexOut, 4> patch,
 #ifdef DRAW_INSTANCED
     float3 centerW = mul(float4(centerL, 1.0f), gInstanceData[patch[0].InstID].World).xyz;
 #else
-    float3 centerW = mul(float4(centerL, 1.0f), gWorld).xyz;
+    float3 centerW = mul(float4(centerL, 1.0f), gObjectData[gObjIndex].World).xyz;
 #endif
     float d = distance(centerW, gEyePosW);
     const float d0 = 5.0f;
@@ -178,6 +184,8 @@ struct DomainOut
     float3 PosW : POSITION;
     float3 NormalW : NORMAL;
     float2 TexC : TEXCOORD;
+    float4 ShadowPosH : SHADOWPOS;
+    float3 LightDir : LIGHTDIR;
 #ifdef DRAW_INSTANCED
     nointerpolation uint MatIndex : MATINDEX;
 #endif
@@ -209,12 +217,14 @@ DomainOut DS(PatchTess patchTess,
     dout.MatIndex = inst.MaterialIndex;
 #else
     p.z = 0.3f * (p.y * sin(p.x) + p.x * cos(p.y));
-    float4 posW = mul(float4(p, 1.0f), gWorld);
-    dout.NormalW = mul(n, (float3x3) gWorld);
+    float4 posW = mul(float4(p, 1.0f), gObjectData[gObjIndex].World);
+    dout.NormalW = mul(n, (float3x3) gObjectData[gObjIndex].World);
 #endif
 
     dout.TexC = texc;
     dout.PosW = posW.xyz;
     dout.PosH = mul(posW, gViewProj);
+    dout.ShadowPosH = mul(posW, gLightData[0].mShadowTransform); // mul(posW, gLightData[0].mShadowTransform).xyz;
+    dout.LightDir = (gLightData[0].mLightType == 0) ? normalize(gLightData[0].mLightDirection) : normalize(gLightData[0].mLightPosition - posW.xyz);
     return dout;
 }

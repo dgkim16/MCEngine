@@ -1,0 +1,80 @@
+#include "Legacy/MCEngine.h"
+#include "App/Resource.h"
+#include <cstdio>
+#include <cstdlib>
+#include <exception>
+
+// For debugging via std::cout
+void CreateDebugConsole(HINSTANCE hInstance)
+{
+	AllocConsole();
+
+	FILE* fp;
+	freopen_s(&fp, "CONOUT$", "w", stdout);
+	freopen_s(&fp, "CONOUT$", "w", stderr);
+	freopen_s(&fp, "CONIN$", "r", stdin);
+
+	HWND hConsoleWnd = GetConsoleWindow();
+	HICON hIconBig = (HICON)LoadImage(
+		hInstance,
+		MAKEINTRESOURCE(IDI_ICON1),
+		IMAGE_ICON,
+		32, 32,
+		LR_DEFAULTCOLOR
+	);
+
+	HICON hIconSmall = (HICON)LoadImage(
+		hInstance,
+		MAKEINTRESOURCE(IDI_ICON1),
+		IMAGE_ICON,
+		16, 16,
+		LR_DEFAULTCOLOR
+	);
+	SendMessage(hConsoleWnd, WM_SETICON, ICON_BIG, (LPARAM)hIconBig);
+	SendMessage(hConsoleWnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+	
+	std::wstring windowText = L"MC Engine Debug Console";
+	SetWindowText(hConsoleWnd, windowText.c_str());
+
+	std::cout << "NEVER CLOSE THIS WINDOW BEFORE THE ACTUAL APP!!!!" << std::endl;
+}
+
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
+	PSTR cmdLine, int showCmd){
+	// Per-monitor v2 DPI awareness — must run BEFORE any window is created so the
+	// font atlas rasterizes at native pixel density and Windows stops bilinear-
+	// stretching the backbuffer. Available since Windows 10 1607; in user32.dll,
+	// no extra link required.
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
+	// Enable run-time memory check for debug builds.
+#if defined(DEBUG) | defined(_DEBUG)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+	CreateDebugConsole(hInstance);
+
+	try
+	{
+		MCEngine theApp(hInstance);
+		if (!theApp.Initialize())
+			return 0;
+
+		return theApp.Run();
+	}
+	catch (const std::exception& e)	// DxException is a std::runtime_error
+	{
+#if defined(_DEBUG)
+		// A harness run (--capture-sweep, --run-tests) sends CRT error reports to
+		// stderr, which --verify-log makes its log: report there and exit instead
+		// of blocking on a dialog nobody is there to close.
+		if (_set_error_mode(_REPORT_ERRMODE) == _OUT_TO_STDERR) {
+			std::fprintf(stderr, "Fatal error: %s\n", e.what());
+			std::fflush(stderr);
+			return 1;
+		}
+#endif
+		MessageBoxA(nullptr, e.what(), "MC Engine - fatal error", MB_OK | MB_ICONERROR);
+		return 1;
+	}
+}

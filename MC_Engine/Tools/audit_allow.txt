@@ -1,0 +1,13 @@
+# Audit exemptions for Tools\audit.ps1: '<rule> <glob>'.
+# The glob is matched against the path relative to Source\, for example
+# Renderer\D3D12\GpuTimer.cpp. '*' stays inside one directory, '**' crosses directories.
+# 'A9 <number>' stores the Legacy\ file count that A9 compares against.
+# Every line that is not permanent is a temporary bridge and names the step that removes it.
+
+# Permanent.
+A1 Renderer\D3D12\BarrierManager.cpp
+A1 Renderer\D3D12\ThirdParty\DDSTextureLoader.cpp
+A12 Renderer\D3D12\ThirdParty\DDSTextureLoader.cpp
+
+# Legacy\ file count. Lower it whenever files leave Legacy\; it must never grow.
+A9 53

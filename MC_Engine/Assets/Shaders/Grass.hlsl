@@ -5,7 +5,10 @@
 
 StructuredBuffer<MaterialData> gMaterialData : register(t0);
 StructuredBuffer<GrassInstanceData> gInstanceData : register(t1);
+StructuredBuffer<InstanceData> gObjectData : register(t2);
+StructuredBuffer<LightData> gLightData : register(t3);
 SamplerState anisotropicWrap : register(s4);
+SamplerComparisonState gsamShadow : register(s6);
 
 // combind tessellation + instancing
 
@@ -98,6 +101,8 @@ struct DomainOut
     float3 NormalW : NORMAL;
     float2 TexC : TEXCOORD;
     nointerpolation uint MatIndex : MATINDEX;
+    float4 ShadowPosH : SHADOWPOS;
+    float3 LightDir : LIGHTDIR;
     // float BendF : VALUE;   // interpolated
 };
 
@@ -161,11 +166,21 @@ DomainOut DS(PatchTess pt, float2 uv : SV_DomainLocation, const OutputPatch<Hull
     //dout.NormalW = mul(n, (float3x3) World);
     dout.TexC = tc;
     dout.NormalW = normW;
+    
+    dout.ShadowPosH = mul(posW, gLightData[0].mShadowTransform);
+    dout.LightDir = (gLightData[0].mLightType == 0) ? (gLightData[0].mLightDirection) : (gLightData[0].mLightPosition - posW.xyz);
 
-    dout.MatIndex = (uint)gMatIndex;
+    dout.MatIndex = (uint) gObjectData[gObjIndex].MaterialIndex;
     
     // dout.BendF = bendFactor;
     return dout;
+}
+
+float CalcShadowFactor(float4 shadowPosH, uint smapIdx)
+{
+    shadowPosH.xyz /= shadowPosH.w; // no-op for ortho (w=1); keeps spot-ready
+    Texture2D smap = ResourceDescriptorHeap[smapIdx];
+    return max(smap.SampleCmpLevelZero(gsamShadow, shadowPosH.xy, shadowPosH.z), 0.4f);
 }
 
 // ── PS ─────────────────────────────────────────────────────────────────────
@@ -175,7 +190,7 @@ DomainOut DS(PatchTess pt, float2 uv : SV_DomainLocation, const OutputPatch<Hull
 // both vary per blade — causing some blades to appear dark.
 float4 PS(DomainOut pin) : SV_Target
 {
-    MaterialData matData = gMaterialData[gMatIndex]; // use b0 cbuffer's gMatIndex for all instances
+    MaterialData matData = gMaterialData[gObjectData[gObjIndex].MaterialIndex]; // use b0 cbuffer's gMatIndex for all instances
     float4 diffuseAlbedo = matData.DiffuseAlbedo;
 #ifdef ALPHA_TEST
     clip(diffuseAlbedo.a - 0.1f);
@@ -208,12 +223,16 @@ float4 PS(DomainOut pin) : SV_Target
     // float4 litColor = ambient + saturate(float4((Kd + specAlbedo) * Intensity, 1.0f));
     float3 fresnelr0 = matData.FresnelR0;
     float roughness = matData.Roughness;
-    float4 litColor = SimpleBlinnPhong(diffuseAlbedo, gAmbientLight, fresnelr0, lightingN, toEyeW, pin.PosW, 1.0 - roughness, gLights[0]);
+    float4 litColor = LunaPhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, lightingN, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], gLightData[0].mLightDirection); // this must be changed to use pin.LightVec
     // Fog
+    if (gLightData[0].mShadowMapIndex != -1)
+    {
+        float shadowFactor = gLightData[0].mCastShadow ? CalcShadowFactor(pin.ShadowPosH, gLightData[0].mShadowMapIndex) : 1.0f;
+        litColor.rgb *= shadowFactor;
+    }
     float distToEye = length(gEyePosW - pin.PosW);
     float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
     litColor = lerp(litColor, gFogColor, fogAmount);
-
     litColor.a = 1.0f;
     return litColor;
 }

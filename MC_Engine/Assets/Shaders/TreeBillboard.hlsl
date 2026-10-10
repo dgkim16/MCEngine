@@ -5,6 +5,8 @@
 
 // Texture2DArray gTreeMapArray : register(t0);
 StructuredBuffer<MaterialData> gMaterialData : register(t0);
+StructuredBuffer<InstanceData> gObjectData : register(t2);
+StructuredBuffer<LightData> gLightData : register(t3);
 SamplerState gsamLinear : register(s0); // see d3dUtil::GetStaticSamplers
 SamplerState gsamPointClamp : register(s1);
 SamplerState gsamLinearWrap : register(s2);
@@ -31,6 +33,8 @@ struct GeoOut
     float3 NormalW : NORMAL;
     float2 TexC : TEXCOORD;
     uint PrimID : SV_PrimitiveID;
+    float4 ShadowPosH : SHADOWPOS;
+    float3 LightDir : LIGHTDIR;
 };
 
 VertexOut VS(VertexIn vin)
@@ -99,7 +103,8 @@ void GS(point VertexOut gin[1],
         gout.NormalW = look;
         gout.TexC = texC[i];
         gout.PrimID = primID;
-		
+        gout.ShadowPosH = mul(v[i], gLightData[0].mShadowTransform);
+        gout.LightDir = (gLightData[0].mLightType == 0) ? normalize(gLightData[0].mLightDirection) : normalize(gLightData[0].mLightPosition - v[i].xyz);
         triStream.Append(gout);
     }
 }
@@ -107,7 +112,7 @@ void GS(point VertexOut gin[1],
 float4 PS(GeoOut pin) : SV_Target
 {
     float3 uvw = float3(pin.TexC, pin.PrimID % 3);
-    MaterialData matData = gMaterialData[gMatIndex];
+    MaterialData matData = gMaterialData[gObjectData[gObjIndex].MaterialIndex];
     Texture2DArray gTreeMapArray = ResourceDescriptorHeap[matData.DiffuseMapIndex];
     float4 diffuseAlbedo = gTreeMapArray.Sample(gsamAnisotropicWrap, uvw) * matData.DiffuseAlbedo;
     float3 fresnelr0 = matData.FresnelR0;
@@ -120,8 +125,9 @@ float4 PS(GeoOut pin) : SV_Target
     float3 normal = pin.NormalW;
     float3 toEyeW = gEyePosW - pin.PosW;
     float distToEye = length(toEyeW);
-    toEyeW /= distToEye; // normalize
-    float4 litColor = SimpleBlinnPhong(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLights[0]);
+    toEyeW = normalize(toEyeW);
+    // toEyeW /= distToEye; // normalize
+    float4 litColor = LunaPhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir);
 #ifdef FOG
 	float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
 	litColor = lerp(litColor, gFogColor, fogAmount);

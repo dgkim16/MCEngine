@@ -4,9 +4,12 @@
 
 StructuredBuffer<MaterialData> gMaterialData : register(t0);
 StructuredBuffer<InstanceData> gInstanceData : register(t1);
+StructuredBuffer<InstanceData> gObjectData : register(t2);
+StructuredBuffer<LightData> gLightData : register(t3);
 
 SamplerState gsamLinear : register(s0); // see d3dUtil::GetStaticSamplers
 SamplerState anisotropicWrap : register(s4);
+SamplerComparisonState gsamShadow : register(s6);
 
 struct VertexIn
 {
@@ -21,6 +24,8 @@ struct VertexOut
     float3 PosW : POSITION;
     float3 NormalW : NORMAL;
     float2 TexC : TEXCOORD;
+    float4 ShadowPosH : SHADOWPOS;
+    float3 LightDir : LIGHTDIR;
 #ifdef DRAW_INSTANCED
     nointerpolation uint MatIndex : MATINDEX;   // Do NOT interpolate. Just use the value from one vertex for the whole primitive. otherwise value gets interpolated for each Pixel between vertices of triangle
 #endif
@@ -42,21 +47,30 @@ VertexOut VS(VertexIn vin
     // MaterialData matData = gMaterialData[matIndex];
 #else
 	// Transform to homogeneous clip space.
-    float4x4 world = gWorld;
-    float4x4 texTransform = gTexTransform;
+    float4x4 world = gObjectData[gObjIndex].World;
+    float4x4 texTransform = gObjectData[gObjIndex].TexTransform;
     
 #endif
-    MaterialData matData = gMaterialData[gMatIndex];
+    MaterialData matData = gMaterialData[gObjectData[gObjIndex].MaterialIndex];
     float4 posW = mul(float4(vin.PosL, 1.0f), world);
     vout.PosW = posW.xyz;
     vout.PosH = mul(posW, gViewProj);
 	// Assumes nonuniform scaling; otherwise, need to use inverse-transpose of world matrix.
     vout.NormalW = mul(vin.NormalL, (float3x3) world);
-	
+    vout.ShadowPosH = mul(posW, gLightData[0].mShadowTransform);
+    vout.LightDir = (gLightData[0].mLightType == 0) ? (gLightData[0].mLightDirection) : (gLightData[0].mLightPosition - posW.xyz);
     float4 texc = mul(float4(vin.TexC, 0.0f, 1.0f), texTransform);
     vout.TexC = mul(texc, matData.matTransform).xy;
     
     return vout;
+}
+
+float CalcShadowFactor(float4 shadowPosH, uint smapIdx, float bias)
+{
+    shadowPosH.xyz /= shadowPosH.w; // no-op for ortho (w=1); keeps spot-ready
+    Texture2D smap = ResourceDescriptorHeap[smapIdx];
+    return max(smap.SampleCmpLevelZero(gsamShadow, shadowPosH.xy, shadowPosH.z), 0.4f); // this does Percentage Bilinear Filtering
+    // return max(smap.SampleCmpLevelZero(gsamShadow, shadowPosH.xy, shadowPosH.z - bias), 0.4f); // this does Percentage Bilinear Filtering
 }
 
 float4 PS(VertexOut pin) : SV_Target
@@ -64,7 +78,7 @@ float4 PS(VertexOut pin) : SV_Target
 // #if DRAW_INSTANCED
 //    MaterialData matData = gMaterialData[pin.MatIndex];
 // #else
-    MaterialData matData = gMaterialData[gMatIndex];
+    MaterialData matData = gMaterialData[gObjectData[gObjIndex].MaterialIndex];
 // #endif
     Texture2D diffuseMap = ResourceDescriptorHeap[matData.DiffuseMapIndex]; //ResourceDescriptorHeap[matData.DiffuseMapIndex];
     float4 diffuseAlbedo = diffuseMap.Sample(anisotropicWrap, pin.TexC) * matData.DiffuseAlbedo;
@@ -74,12 +88,24 @@ float4 PS(VertexOut pin) : SV_Target
     clip(diffuseAlbedo.a - 0.1f);
 #endif
     // Interpolating normal can unnormalize it, so renormalize it.
-    pin.NormalW = normalize(pin.NormalW);
-    float3 normal = pin.NormalW;
+    // pin.NormalW = normalize(pin.NormalW);
+    float3 normal = normalize(pin.NormalW);
     float3 toEyeW = gEyePosW - pin.PosW;
     float distToEye = length(toEyeW);
     toEyeW /= distToEye; // normalize
-    float4 litColor = SimpleBlinnPhong(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLights[0]);
+    float4 litColor = gAmbientLight.a > 0.5f 
+                    ? LunaPhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir)
+                    : classicBlinnPhong(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir);
+    if (gLightData[0].mShadowMapIndex != -1)
+    {
+        float shadowFactor = gLightData[0].mCastShadow ? CalcShadowFactor(pin.ShadowPosH, gLightData[0].mShadowMapIndex, gLightData[0].depthBias) : 1.0f;
+        // shadow attenuates direct light only; ambient term matches the one each lighting function adds
+        float3 ambient = gAmbientLight.a > 0.5f
+                       ? gAmbientLight.rgb * diffuseAlbedo.rgb * gLightData[0].mLightColor
+                       : gAmbientLight.rgb * diffuseAlbedo.rgb;
+        litColor.rgb = ambient + (litColor.rgb - ambient) * shadowFactor;
+    }
+    
 #ifdef FOG
 	float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
 	litColor = lerp(litColor, gFogColor, fogAmount);

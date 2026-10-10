@@ -10,7 +10,7 @@
 #define SHARED_TYPES
 #endif 
 #elif __cplusplus
-
+// C++ only code
 #pragma once
 #include <cstdint>
 #include <DirectXMath.h>
@@ -35,7 +35,7 @@
 // These are filled on the CPU and uploaded to GPU constant/structured buffers.
 // Their memory layouts must match the corresponding HLSL cbuffer/struct.
 
-struct MaterialConstants      // mirrors MaterialData (StructuredBuffer t0)
+struct MaterialConstants      // mirrors MaterialData (StructuredBuffer t0) (do we need this tho?)
 {
     float4   DiffuseAlbedo;
     float3   FresnelR0;
@@ -81,26 +81,32 @@ struct CSB_blur               // mirrors BlurDispatchCB (b0) in blursCS.hlsl
 #define SAM_ANISO_CLAMP 5
 #define SAM_SHADOW 6
 
-#define MAX_LIGHTS 1
+// #define MAX_LIGHTS 256
 
-DEFINE_CBUFFER(PerObjectCB, b0)
+
+DEFINE_CBUFFER(cbObjIndex, b0)
 {
-    float4x4 gWorld;
-    float4x4 gTexTransform;
-    int gMatIndex;
+    uint gObjIndex;
 };
 
+// this is accessed as SRV via ResourceDescriptor[idx]. Therefore needs to be 4 Byte aligned
 struct LightData
 {
     float3 mLightColor;
     float mLightIntensity;
     float3 mLightDirection;     // spotlight, directional light
     float mAttenuationDist;     // punctual lights only (spot & point)
-    float mLightRadius;         // punctual lights only (spot & point)
     float3 mLightPosition;      // punctual lights only (spot & point)
+    float mLightRadius;         // punctual lights only (spot & point)
+    float4x4 mShadowTransform;  // LightPos * mShadowTransform = R, use R.xy as uv on shadowmap (sm.xy), and compare with R.z. if R.z greater, shaded area. if smaller, not shaded area.
+    
+    float depthBias;
     int mLightType;             // 0 directional, 1 point, 2 spot, 3 count
+    int mCastShadow;            // 0 is no-cast. 1 is caster.
+    int mShadowMapIndex;
 };
 
+// this is CBV, so must be 16 bytes-aligned
 DEFINE_CBUFFER(PerPassCB, b1)   // allowed upto 64KB per constant buffer (CBV)
 {
     float4x4 gView;
@@ -122,9 +128,10 @@ DEFINE_CBUFFER(PerPassCB, b1)   // allowed upto 64KB per constant buffer (CBV)
     float4 gFogColor;
     float gFogStart;
     float gFogRange;
-    float2 cbPerObjectPad2;
+    float2 cbPerObjectPad2; // 480 Bytes upto here
 
-    LightData gLights[MAX_LIGHTS]; // forward rendering approach
+    // LightData gLights[MAX_LIGHTS]; // moved out to StructuredBuffer<LightData> - SRV
+    // uint gLightCount;
 };
 
 // Structured Buffer
@@ -138,11 +145,12 @@ struct MaterialData
     uint DiffuseMapIndex;
 };
 
-struct InstanceData         // large vertex per instance, small instance count
+struct InstanceData // == ObjectData
 {
-    float4x4 World;        // was gWorld
-    float4x4 TexTransform; // was gTexTransform
-    // uint MaterialIndex;    // was gMatIndex
+    float4x4 World;         // was gWorld. currently being applied on normals (incorrect, but visually sound as long as no non-uniform scaling)
+    // float4x4 WorldT;     // if non-uniform scaling, must apply this to normal, not World.
+    float4x4 TexTransform;  // was gTexTransform
+    uint MaterialIndex;     // was gMatIndex
 };
 
 struct GrassInstanceData // small vertex per instance, large instance count

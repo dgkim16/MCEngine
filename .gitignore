@@ -1,10 +1,17 @@
-# Build output
-x64/
-Debug/
-Release/
+# Build output (OutDir, IntDir)
+MC_Engine/x64/
+MC_Engine/MC_main/
+MC_Engine/Debug/
+MC_Engine/Release/
+*.exe
+*.obj
+*.bak
+
+# Wavefront models are assets, not object files
+!MC_Engine/Assets/**/*.obj
 
 # old files
-deprec/
+/deprec/
 
 # Visual Studio
 .vs/

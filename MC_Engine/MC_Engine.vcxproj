@@ -1,22 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
-      <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="DirectX12_Reusable|Win32">
-      <Configuration>DirectX12_Reusable</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="DirectX12_Reusable|x64">
-      <Configuration>DirectX12_Reusable</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
-      <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
@@ -35,124 +19,39 @@
     <ProjectName>MC_main</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v143</PlatformToolset>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v143</PlatformToolset>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v143</PlatformToolset>
-  </PropertyGroup>
-  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='DirectX12_Reusable|Win32'">
-    <PlatformToolset>v143</PlatformToolset>
-  </PropertyGroup>
-  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='DirectX12_Reusable|x64'">
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="MC_Engine.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="MC_Engine.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(PIXEventRuntime);$(LibraryPath)</LibraryPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(SolutionDir)FrameGraph;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(LibraryPath)</LibraryPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(PIXEventRuntime);$(LibraryPath)</LibraryPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(SolutionDir)Includes\imgui;$(SolutionDir)Common;$(SolutionDir)Includes;$(SolutionDir)Assets\Shaders;$(SolutionDir)Includes\xxhash;$(SolutionDir)FrameGraph;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Libs\Any;$(SolutionDir)x64\Debug;$(SolutionDir)Includes;$(LibraryPath)</LibraryPath>
-  </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-    </ClCompile>
-    <Link>
-      <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Link>
-    <FxCompile />
-    <FxCompile />
-    <FxCompile>
-      <ShaderModel>5.1</ShaderModel>
-    </FxCompile>
-    <PostBuildEvent>
-      <Command>xcopy /E /Y /I "$(ProjectDir)Assets" "$(OutDir)Assets"</Command>
-    </PostBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-    </ClCompile>
-    <Link>
-      <SubSystem>Windows</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-    <FxCompile />
-    <FxCompile>
-      <ShaderModel>4.1</ShaderModel>
-      <ShaderType>Effect</ShaderType>
-    </FxCompile>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -166,7 +65,8 @@
       <ShaderModel>5.1</ShaderModel>
     </FxCompile>
     <PostBuildEvent>
-      <Command>xcopy /E /Y /I "$(ProjectDir)Assets" "$(OutDir)Assets"</Command>
+      <Command>%(Command)
+xcopy /E /Y /I "$(ProjectDir)Assets" "$(OutDir)Assets"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -177,7 +77,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -191,53 +91,11 @@
       <ShaderType>Effect</ShaderType>
     </FxCompile>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DirectX12_Reusable|Win32'">
-    <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Includes\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DirectX12_Reusable|x64'">
-    <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\dgkim\Desktop\CPP\Learning CPP\DX12_Luna\Includes\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-  </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Assets\Shaders\SharedTypes.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="BarrierManager.h" />
-    <ClInclude Include="Common\Camera.h" />
-    <ClInclude Include="Common\d3dApp.h" />
-    <ClInclude Include="Common\d3dUtil.h" />
-    <ClInclude Include="Common\d3dx12.h" />
-    <ClInclude Include="Common\DDSTextureLoader.h" />
-    <ClInclude Include="Common\FrameResource.h" />
-    <ClInclude Include="Common\GameTimer.h" />
-    <ClInclude Include="Common\GeometryGenerator.h" />
-    <ClInclude Include="Common\MathHelper.h" />
-    <ClInclude Include="Common\UploadHelper.h" />
-    <ClInclude Include="ConstExpressionValues.h" />
-    <ClInclude Include="CpuTimer.h" />
-    <ClInclude Include="DescHeapManager.h" />
-    <ClInclude Include="FrameGraph\AlphaTestedPass.h" />
-    <ClInclude Include="FrameGraph\AlphaTestedTreeSpritesPass.h" />
-    <ClInclude Include="FrameGraph\FgBlackboard.h" />
-    <ClInclude Include="FrameGraph\FgRenderContext.h" />
-    <ClInclude Include="FrameGraph\FrameGraph.h" />
-    <ClInclude Include="FrameGraph\FrameGraphPasses.h" />
-    <ClInclude Include="FrameGraph\LambdaPass.h" />
-    <ClInclude Include="FrameGraph\MirrorsPass.h" />
-    <ClInclude Include="FrameGraph\NoOpPass.h" />
-    <ClInclude Include="FrameGraph\OpaqueInstancedPass.h" />
-    <ClInclude Include="FrameGraph\OpaquePass.h" />
-    <ClInclude Include="FrameGraph\OpaqueTessellated.h" />
-    <ClInclude Include="FrameGraph\ReflectedPass.h" />
-    <ClInclude Include="FrameGraph\RenderPass.h" />
-    <ClInclude Include="FrameGraph\ShadowPass.h" />
-    <ClInclude Include="FrameGraph\TransparentPass.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="GpuTimer.h" />
+    <ClInclude Include="Source\**\*.h" />
     <ClInclude Include="Includes\imgui\imconfig.h" />
     <ClInclude Include="Includes\imgui\imgui.h" />
     <ClInclude Include="Includes\imgui\ImGuizmo.h" />
@@ -247,181 +105,77 @@
     <ClInclude Include="Includes\imgui\imstb_rectpack.h" />
     <ClInclude Include="Includes\imgui\imstb_textedit.h" />
     <ClInclude Include="Includes\imgui\imstb_truetype.h" />
-    <ClInclude Include="JsonMigrator.h" />
-    <ClInclude Include="MCAssetIdentity.h" />
-    <ClInclude Include="MCEngine.h" />
-    <ClInclude Include="MCGrassCullingModule.h" />
-    <ClInclude Include="MCMaterial.h" />
-    <ClInclude Include="MCMaterialManager.h" />
-    <ClInclude Include="MCMeshGeometry.h" />
-    <ClInclude Include="MCMeshSource.h" />
-    <ClInclude Include="MCMeshSourceManager.h" />
-    <ClInclude Include="MCScene.h" />
-    <ClInclude Include="MCSceneManager.h" />
-    <ClInclude Include="MCSceneModule.h" />
-    <ClInclude Include="MCTexture.h" />
-    <ClInclude Include="MCTextureManager.h" />
-    <ClInclude Include="MCVertex.h" />
-    <ClInclude Include="MC_AssetTests.h" />
-    <ClInclude Include="MC_FileDialog.h" />
-    <ClInclude Include="MC_Picker.h" />
-    <ClInclude Include="MC_Types.h" />
-    <ClInclude Include="modelLoader.h" />
-    <ClInclude Include="CBFreeList.h" />
-    <ClInclude Include="RenderItem.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="SceneSerialization.h" />
-    <ClInclude Include="ShaderLib.h" />
-    <ClInclude Include="ShaderMacros.h" />
-    <ClInclude Include="Singleton.h" />
-    <ClInclude Include="targetver.h" />
-    <ClInclude Include="TesterConsole.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BarrierManager.cpp" />
-    <ClCompile Include="Common\Camera.cpp" />
-    <ClCompile Include="Common\d3dApp.cpp" />
-    <ClCompile Include="Common\d3dApp_d3Init.cpp" />
-    <ClCompile Include="Common\d3dApp_logging.cpp" />
-    <ClCompile Include="Common\d3dUtil.cpp" />
-    <ClCompile Include="Common\DDSTextureLoader.cpp" />
-    <ClCompile Include="Common\FrameResources.cpp" />
-    <ClCompile Include="Common\GameTimer.cpp" />
-    <ClCompile Include="Common\GeometryGenerator.cpp" />
-    <ClCompile Include="Common\MathHelper.cpp" />
-    <ClCompile Include="CpuTimer.cpp" />
-    <ClCompile Include="DescHeapManager.cpp" />
-    <ClCompile Include="FrameGraph\FrameGraph.cpp" />
-    <ClCompile Include="GpuTimer.cpp" />
+    <ClCompile Include="Source\**\*.cpp" />
     <ClCompile Include="Includes\imgui\imgui.cpp" />
     <ClCompile Include="Includes\imgui\ImGuizmo.cpp" />
-    <ClCompile Include="Includes\imgui\imgui_demo.cpp" />
     <ClCompile Include="Includes\imgui\imgui_draw.cpp" />
     <ClCompile Include="Includes\imgui\imgui_impl_dx12.cpp" />
     <ClCompile Include="Includes\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="Includes\imgui\imgui_tables.cpp" />
     <ClCompile Include="Includes\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="JsonMigrator.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="MCEngine.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="MCGrassCullingModule.cpp" />
-    <ClCompile Include="MCMaterialManager.cpp" />
-    <ClCompile Include="MCMeshSourceManager.cpp" />
-    <ClCompile Include="MCScene.cpp" />
-    <ClCompile Include="MCSceneManager.cpp" />
-    <ClCompile Include="MCTextureManager.cpp" />
-    <ClCompile Include="MC_AssetTests.cpp" />
-    <ClCompile Include="MC_Controls.cpp" />
-    <ClCompile Include="MC_debug.cpp" />
-    <ClCompile Include="MC_FileDialog.cpp" />
-    <ClCompile Include="MC_imgui.cpp" />
-    <ClCompile Include="MC_imgui_DescHeapVis.cpp" />
-    <ClCompile Include="MC_imgui_FrameGraph.cpp" />
-    <ClCompile Include="MC_imgui_InspectorPanel.cpp" />
-    <ClCompile Include="MC_imgui_Menubar.cpp" />
-    <ClCompile Include="MC_imgui_outliner.cpp" />
-    <ClCompile Include="MC_RenderPass.cpp" />
-    <ClCompile Include="MC_Picker.cpp" />
-    <ClCompile Include="MC_PipelineManager.cpp" />
-    <ClCompile Include="modelLoader.cpp" />
-    <ClCompile Include="CBFreeList.cpp" />
-    <ClCompile Include="SceneSerialization.cpp" />
-    <ClCompile Include="ShaderLib.cpp" />
-    <ClCompile Include="ShaderLibDx.cpp" />
-    <ClCompile Include="TesterConsole.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="MC_main.rc" />
+    <ResourceCompile Include="Source\App\MC_main.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="MC.ico" />
+    <Image Include="Source\App\MC.ico" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Remove="**\*" />
     <FxCompile Include="Assets\Shaders\color.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\blursCS.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\debugLine.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\depthDebug.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\ForceAlpha.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\Grass.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\GrassCull.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\hlslUtilities.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\lighting.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\SobelCS.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\Tessellation.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Assets\Shaders\TreeBillboard.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="README.md" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="FrameGraph\FgTypes.h" />
+    <None Include="..\README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
