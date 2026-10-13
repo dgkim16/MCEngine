@@ -1,4 +1,5 @@
 #include "Legacy/MCGrassCullingModule.h"
+#include "Core/LoggingSystem.h"
 #include "Legacy/MCEngine.h"
 #include "Core/AssetIdentity.h"
 #include "imgui.h"
@@ -116,7 +117,7 @@ void MCGrassCullingModule::PopulateGrassInstances(MCEngine& engine) {
 
 	mGrassRitem->GrassInstances.clear();
 	mGrassRitem->GrassInstances.resize(grassCount);
-	OutputDebugString(L"started instancing render item\n");
+	MC::LoggingSystem::Debug("started instancing render item");
 
 	std::mt19937 rng(12345);
 	std::uniform_real_distribution<float> jitterDist(-0.4f, 0.4f);
@@ -145,7 +146,7 @@ void MCGrassCullingModule::PopulateGrassInstances(MCEngine& engine) {
 			mGrassRitem->GrassInstances[index].scale = scale;
 		}
 	}
-	OutputDebugString(L"completed building render item!\n");
+	MC::LoggingSystem::Debug("completed building render item!");
 
 	// Sort GrassInstances by cell + build InstanceCells (CPU-culling input).
 	BuildInstanceCells(engine);

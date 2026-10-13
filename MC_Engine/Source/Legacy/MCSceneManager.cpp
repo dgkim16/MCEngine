@@ -1,4 +1,5 @@
 #include "Legacy/MCSceneManager.h"
+#include "Core/LoggingSystem.h"
 #include "Legacy/MCEngine.h"
 #include "Legacy/MCScene.h"
 #include "Renderer/D3D12/d3dUtil.h"   // ThrowIfFailed
@@ -28,7 +29,7 @@ void MCSceneManager::LoadAssetRedirects(const std::string& path) {
 	mAssetRedirectsPath = path;   // RecordAssetRedirect writes back here, even when the file is missing
 	if (!fs::exists(path)) {
 		mAssetRedirectsJson = nlohmann::json{ {"redirects", nlohmann::json::array()} };
-		OutputDebugStringA("[redirects] no file; starting empty\n");
+		MC::LoggingSystem::Info("[redirects] no file; starting empty");
 		return;
 	}
 	std::ifstream(path) >> mAssetRedirectsJson;
@@ -62,9 +63,7 @@ void MCSceneManager::LoadAssetRedirects(const std::string& path) {
 		}
 	}
 
-	char buf[64];
-	std::snprintf(buf, sizeof(buf), "[redirects] loaded %zu entries\n", mAssetRedirects.size());
-	OutputDebugStringA(buf);
+	MC::LoggingSystem::Info("[redirects] loaded {} entries", mAssetRedirects.size());
 }
 
 void MCSceneManager::ValidateRedirects() const {
@@ -78,8 +77,7 @@ void MCSceneManager::ValidateRedirects() const {
 		else throw std::runtime_error("redirect: unknown kind '" + kind + "'");
 		if (!exists) {
 			if (kind == "mesh") {
-				OutputDebugStringA(("[redirects] WARN: mesh target " + std::to_string(to) +
-					" not loaded (lives in an unloaded scene?)\n").c_str());
+				MC::LoggingSystem::Warning("[redirects] WARN: mesh target {} not loaded (lives in an unloaded scene?)", to);
 				continue;
 			}
 			throw std::runtime_error("dangling redirect target " +
@@ -177,7 +175,7 @@ void MCSceneManager::LoadAndActivate(const std::string& name) {
 	// --- Reset selected ---
 	mEngine.mSelectedItemIndex = -1;
 	std::cout << "Switch -> '" << name << "': " << sa.TotalObjects << " render items\n";
-	OutputDebugStringA(("Switch -> '" + name + "'\n").c_str());
+	MC::LoggingSystem::Info("Switch -> '{}'", name);
 }
 
 void MCSceneManager::Switch(const std::string& name) {

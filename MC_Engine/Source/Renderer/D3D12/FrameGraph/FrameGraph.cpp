@@ -1030,6 +1030,12 @@ FrameGraph::FgPanelData FrameGraph::BuildPanelSnapshot(const GpuTimer& timer) co
         row.reads = r ? r->reads : 0u;
         row.writes = r ? r->writes : 0u;
         row.aliasOver = r ? r->aliasOver : nullptr;
+        row.execIdx = r ? r->execIdx : UINT32_MAX;
+        if (r) {
+            row.usages.reserve(r->usages.size());
+            for (const auto& u : r->usages)
+                row.usages.push_back({ u.name.c_str(), u.isWrite });
+        }
 
         // Culled this frame -> '—' even if a prior frame recorded its timer.
         row.gpuMs = row.culled ? -1.f : timer.GetAverageMs(s.mTimerIds[i]);

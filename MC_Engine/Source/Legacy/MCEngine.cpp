@@ -1,5 +1,7 @@
 // Ch7_Shapes.cpp
 #include "Legacy/MCEngine.h"
+#include "Core/LoggingSystem.h"
+#include "PIL/TextEncoding.h"
 #include "Renderer/D3D12/ShaderLib.h"
 #include "Legacy/MCScene.h"
 #include "Renderer/D3D12/UploadHelper.h"
@@ -11,6 +13,7 @@
 #include <pix3.h>
 #include "Core/AssetIdentity.h"
 #include "Renderer/D3D12/ConstExpressionValues.h" // gNumFrameResources
+#include "Core/LoggingSystem.h"
 
 
 /*
@@ -25,25 +28,24 @@ using namespace DirectX;
 // Texture metadata now lives in Assets/Textures/*.mctex; loaded by
 // mTextureManager.LoadDirectory in Initialize.
 
-MCEngine::MCEngine(HINSTANCE hInstance)
-	: D3DApp(hInstance),
+MCEngine::MCEngine(void* hInstance, int iconId)
+	: mPlatform(hInstance, L"MC Engine", 1280, 800, iconId),
 	mMaterialManager(*this), mTextureManager(*this),
 	mMeshSourceManager(*this), mSceneManager(*this), mMigrator()
 {
-	mMainWndCaption = L"MC Engine";
 	BuildCamera();
 	MCLightManager::Init();
 }
 
 MCEngine::~MCEngine()
 {
-	OutputDebugString(L"MC Engine DESTRUCTOR Start\n");
+	MC::LoggingSystem::Debug("MC Engine DESTRUCTOR Start");
 	if (md3dDevice != nullptr) {
 		// A removed device makes the flush throw, and a throw out of a destructor
 		// is std::terminate: the error dialog in WinMain would never show.
 		try { FlushCommandQueue(); }
 		catch (const std::exception& e) {
-			OutputDebugStringA(("MC Engine DESTRUCTOR: flush failed: " + std::string(e.what()) + "\n").c_str());
+			MC::LoggingSystem::Error("MC Engine DESTRUCTOR: flush failed: {}", e.what());
 		}
 	}
 	if (auto* active = mSceneManager.GetActive())
@@ -133,7 +135,7 @@ MCEngine::~MCEngine()
 #endif
 	md3dDevice.Reset();
 
-	OutputDebugString(L"======= START of LEAKED ID3D12Device dependent objects:\n");
+	MC::LoggingSystem::Debug("======= START of LEAKED ID3D12Device dependent objects:");
 	ComPtr<IDXGIDebug1> dxgiDebug;
 	// use `if` instead of ThrowIfFailed
 	// destructors are implicitly noexcept(true). Do not throw.
@@ -149,20 +151,37 @@ MCEngine::~MCEngine()
 #if defined(_DEBUG)
 	WriteDebugHarnessLiveObjects();
 #endif
-	OutputDebugString(L"======= END of LEAKED ID3D12Device dependent objects\n");
-	OutputDebugString(L"MC Engine DESTRUCTOR ENDING\n");
+	MC::LoggingSystem::Debug("======= END of LEAKED ID3D12Device dependent objects");
+	MC::LoggingSystem::Debug("MC Engine DESTRUCTOR ENDING");
 }
 
 bool MCEngine::Initialize()
 {
 	std::cout << "start initialization\n";
+	mPlatform.SetMessageHook([this](void* hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+		// later, HWND should be completely removed from this file, and only be used as void*. This is well above PID. DO NOT CALL OS LEVEL CODE
+		HWND window = static_cast<HWND>(hwnd);
+		return IMGUI_WNDMSGHANDLER(window, msg, wParam, lParam);
+	});
 
-	if (!D3DApp::Initialize())
+	if (!D3DApp::Initialize(static_cast<HWND>(mPlatform.NativeWindow()), mPlatform.ClientWidth(), mPlatform.ClientHeight()))
 		return false;
+	// D3DApp built the device, the queue and the swap chain without calling back into
+	// MCEngine. Each step below runs once, in order: the RTV/DSV heaps, then the swap
+	// chain's buffers and their views in those heaps.
+	CreateRtvAndDsvDescriptorHeaps();
+	std::cout << "Created RTV DSV desc heaps" << std::endl;
+	// Drop the resize the window asked for while it was being created, before there was a
+	// device: D3DApp::OnResize below builds the buffers at the current client size anyway.
+	// A window that is already minimized keeps its request, and its client area is 0x0,
+	// which no buffer can have: a minimized launch fails at start-up (not handled yet).
+	int width = 0, height = 0;
+	mPlatform.TakeResizeRequest(width, height);
+	D3DApp::OnResize();	// the back buffers and the window depth buffer; the scene targets come later
 #if defined(_DEBUG)
 	InitDebugHarness();	// verification flags; --verify-log attaches before any asset loads
 #endif
-	std::cout << "D3DAPP init Success\n"; OutputDebugString(L"D3DAPP init Success\n");
+	std::cout << "D3DAPP init Success\n"; MC::LoggingSystem::Debug("D3DAPP init Success");
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 	if (HMODULE pix = PIXLoadLatestWinPixGpuCapturerLibrary())
 		std::cout << "PIX GPU capturer loaded for attach support\n";
@@ -174,8 +193,8 @@ bool MCEngine::Initialize()
 	mMaterialManager.MatCBFreeList().SetCapacity(256); // 256 is a generous value for Phase1
 	mMaterialManager.LoadDirectory("Assets/materials");
 
-	BuildRootSignature();            std::cout << "BuildRootSignature() success\n" << std::endl; OutputDebugString(L"BuildRootSignature() success\n");
-	BuildShadersAndInputLayout();    std::cout << "BuildShadersAndInputLayout() success\n" << std::endl; OutputDebugString(L"BuildShadersAndInputLayout() success\n");
+	BuildRootSignature();            std::cout << "BuildRootSignature() success\n" << std::endl; MC::LoggingSystem::Debug("BuildRootSignature() success");
+	BuildShadersAndInputLayout();    std::cout << "BuildShadersAndInputLayout() success\n" << std::endl; MC::LoggingSystem::Debug("BuildShadersAndInputLayout() success");
 
 	RegisterLights();
 	// Fixed for the process, set before any load. BuildFrameResources sizes
@@ -186,14 +205,14 @@ bool MCEngine::Initialize()
 	// Catalog scene paths only — nothing loads yet (load-on-switch). The boot
 	// scene loads through the same bracketed transition as every runtime switch,
 	// after the setup below closes + flushes this command list.
-	mSceneManager.LoadAssetRedirects("assets/asset_redirects.json");
-	mSceneManager.SetScenePath("Ch7",      "assets/scenes/scene_ch7.json");
-	mSceneManager.SetScenePath("Empty",    "assets/scenes/scene_empty.json");
-	mSceneManager.SetScenePath("Grass",    "assets/scenes/scene_grass.json");
-	mSceneManager.SetScenePath("SoloVoid", "assets/scenes/scene_solo_void.json");
-	mSceneManager.SetScenePath("SoloBox",  "assets/scenes/scene_solo_box.json");
+	mSceneManager.LoadAssetRedirects("Assets/asset_redirects.json");
+	mSceneManager.SetScenePath("Ch7",      "Assets/scenes/scene_ch7.json");
+	mSceneManager.SetScenePath("Empty",    "Assets/scenes/scene_empty.json");
+	mSceneManager.SetScenePath("Grass",    "Assets/scenes/scene_grass.json");
+	mSceneManager.SetScenePath("SoloVoid", "Assets/scenes/scene_solo_void.json");
+	mSceneManager.SetScenePath("SoloBox",  "Assets/scenes/scene_solo_box.json");
 
-	BuildDescriptorHeaps();          std::cout << "Descriptor Heaps build success\n" << std::endl; OutputDebugString(L"Descriptor Heaps build success\n");
+	BuildDescriptorHeaps();          std::cout << "Descriptor Heaps build success\n" << std::endl; MC::LoggingSystem::Debug("Descriptor Heaps build success");
 	// After BuildDescriptorHeaps (DescHeapManager::Init), before InitializeRenderPass (RegisterPass).
 	mFrameGraph = std::make_unique<FrameGraph>(md3dDevice.Get(), DescHeapManager::Get(), mGpuTimer);
 
@@ -203,14 +222,12 @@ bool MCEngine::Initialize()
 	// to have been called inside BuildDescriptorHeaps.
 	mTextureManager.LoadDirectory("Assets/Textures");
 
-	BuildPSOs();                     std::cout << "PSO build success\n" << std::endl; OutputDebugString(L"PSO build success\n");
+	BuildPSOs();                     std::cout << "PSO build success\n" << std::endl; MC::LoggingSystem::Debug("PSO build success");
 	BuildDebugLineResources();       std::cout << "Debug line resources built\n";
 	// MCScene render targets must exist before compute-CB init (reads their bindless offsets).
 	BuildSceneRenderTarget();
 	BuildSceneRenderTargetDescriptors();
 	MCLightManager::Get().CreateShadowMapResources(md3dDevice.Get(), mBarrierManager); // must be called AFTER registerLights()
-	// BuildShadowMapResource();
-	// BuildShadowMapDescriptors();
 	MCLightManager::Get().SetupShadowMapDSVSRVs();
 	BuildComputeShaderConstantBufferResources();
 	ThrowIfFailed(mCommandList->Close());
@@ -227,9 +244,9 @@ bool MCEngine::Initialize()
 	assert(mObjCBCapacity >= mObjCBFreeList.HighWater()
 	       && "per-frame ObjCB array smaller than free-list high-water; bump kObjCBHeadroom");
 
-	OutputDebugString(L"MCEngine-Initialize() - IMGUI init Start\n");
+	MC::LoggingSystem::Debug("MCEngine-Initialize() - IMGUI init Start");
 	IMGUI_INIT();
-	OutputDebugString(L"MCEngine-Initialize() - IMGUI init Done\n");
+	MC::LoggingSystem::Debug("MCEngine-Initialize() - IMGUI init Done");
 
 	// --- FrameGraph MVP test
 	InitializeRenderPass();
@@ -242,171 +259,18 @@ bool MCEngine::Initialize()
 	return true;
 }
 
-LRESULT MCEngine::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	if (IMGUI_WNDMSGHANDLER(hwnd, msg, wParam, lParam))
-		return true;
-	switch (msg)
-	{
-		// WM_ACTIVATE is sent when the window is activated or deactivated.
-		// We pause the game when the window is deactivated and unpause it
-		// when it becomes active.
-	case WM_ACTIVATE:
-#if defined(_DEBUG)
-		if (IsHarnessDriving())	// unattended runs keep rendering when the window loses focus
-			return 0;
-#endif
-		if (LOWORD(wParam) == WA_INACTIVE)
-		{
-			mAppPaused = true;
-			mTimer.Stop();
-		}
-		else
-		{
-			mAppPaused = false;
-			mTimer.Start();
-		}
-		return 0;
-
-		// WM_SIZE is sent when the user resizes the window.
-	case WM_SIZE:
-		// Save the new client area dimensions.
-		mClientWidth = LOWORD(lParam);
-		mClientHeight = HIWORD(lParam);
-		if (md3dDevice)
-		{
-			if (wParam == SIZE_MINIMIZED)
-			{
-				mAppPaused = true;
-				mMinimized = true;
-				mMaximized = false;
-			}
-			else if (wParam == SIZE_MAXIMIZED)
-			{
-				mAppPaused = false;
-				mMinimized = false;
-				mMaximized = true;
-				OnResize();
-			}
-			else if (wParam == SIZE_RESTORED)
-			{
-
-				// Restoring from minimized state?
-				if (mMinimized)
-				{
-					mAppPaused = false;
-					mMinimized = false;
-					OnResize();
-				}
-
-				// Restoring from maximized state?
-				else if (mMaximized)
-				{
-					mAppPaused = false;
-					mMaximized = false;
-					OnResize();
-				}
-				else if (mResizing)
-				{
-					// If user is dragging the resize bars, we do not resize
-					// the buffers here because as the user continuously
-					// drags the resize bars, a stream of WM_SIZE messages are
-					// sent to the window, and it would be pointless (and slow)
-					// to resize for each WM_SIZE message received from dragging
-					// the resize bars.  So instead, we reset after the user is
-					// done resizing the window and releases the resize bars, which
-					// sends a WM_EXITSIZEMOVE message.
-				}
-				else // API call such as SetWindowPos or mSwapChain->SetFullscreenState.
-				{
-					OnResize();
-				}
-			}
-		}
-		return 0;
-
-		// WM_EXITSIZEMOVE is sent when the user grabs the resize bars.
-	case WM_ENTERSIZEMOVE:
-		mAppPaused = true;
-		mResizing = true;
-		mTimer.Stop();
-		return 0;
-
-		// WM_EXITSIZEMOVE is sent when the user releases the resize bars.
-		// Here we reset everything based on the new window dimensions.
-	case WM_EXITSIZEMOVE:
-		mAppPaused = false;
-		mResizing = false;
-		mTimer.Start();
-		OnResize();
-		return 0;
-
-		// WM_DESTROY is sent when the window is being destroyed.
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		return 0;
-
-		// The WM_MENUCHAR message is sent when a menu is active and the user presses
-		// a key that does not correspond to any mnemonic or accelerator key.
-	case WM_MENUCHAR:
-		// Don't beep when we alt-enter.
-		return MAKELRESULT(0, MNC_CLOSE);
-
-		// Catch this message so to prevent the window from becoming too small.
-	case WM_GETMINMAXINFO:
-		((MINMAXINFO*)lParam)->ptMinTrackSize.x = 200;
-		((MINMAXINFO*)lParam)->ptMinTrackSize.y = 200;
-		return 0;
-
-	case WM_LBUTTONDOWN:
-	case WM_MBUTTONDOWN:
-	case WM_RBUTTONDOWN: {
-		if (mSceneImageHovered)
-			OnMouseDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		return 0;
+int MCEngine::Run() {
+	mPlatform.ResetClock();
+	while (mPlatform.IsRunning()) {
+		if (mPlatform.DispatchOneMessage())
+			continue;
+		const float dt = mPlatform.Tick();
+		if (mPlatform.IsPaused()) { mPlatform.SleepWhilePaused(); continue; }
+		ApplyWindowResize();	// TakeResizeRequest → mClientWidth/Height → OnResize()
+		RunFrame(dt);
+		mPlatform.LimitFrameRate();
 	}
-	case WM_LBUTTONUP:
-	case WM_MBUTTONUP:
-	case WM_RBUTTONUP:
-		OnMouseUp(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		return 0;
-	case WM_MOUSEMOVE: {
-		//ImGuiIO& io = ImGui::GetIO();
-		if (mSceneImageHovered)
-			OnMouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		return 0;
-	}
-	case WM_KEYUP:
-		if (wParam == VK_ESCAPE) // ESC
-		{
-			PostQuitMessage(0);
-		}
-		/*
-		* recent version (2026) of dx12 does not allow
-		* applying msaa onto render target directly on
-		* the same resource as back buffer
-		* fix: render onto different RT texture that has msaa enabled
-		* then copy that RT texture onto RT of back buffer to present
-		else if ((int)wParam == VK_F2)
-			Set4xMsaaState(!m4xMsaaState);
-			*/
-		return 0;
-	case WM_MOVE:
-	case WM_DISPLAYCHANGE:
-		UpdateCurrentMonitorRefreshRate(hwnd);
-		return 0;
-	case WM_MOUSEWHEEL: {
-		int delta = GET_WHEEL_DELTA_WPARAM(wParam); // positive = scroll up, negative = scroll down
-		// delta comes in multiples of WHEEL_DELTA (120)
-		// so normalize it:
-		float scrollAmount = (float)delta / WHEEL_DELTA; // +1.0 or -1.0 per notch
-
-		if (mSceneImageHovered)
-			OnMouseScroll(wParam,scrollAmount);
-		return 0;
-	}
-
-	}
-	return DefWindowProc(hwnd, msg, wParam, lParam);
+	return mPlatform.ExitCode();
 }
 
 void MCEngine::BeginSceneTransition() {
@@ -585,27 +449,49 @@ void MCEngine::OnSceneResize()
 	// XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, sceneAspectRatio(), nearPlane, farPlane);
 	// XMStoreFloat4x4(&mProj, P);
 	BuildSceneRenderTarget();
-	if (mCbvSrvUavHeap != nullptr)
-		BuildSceneRenderTargetDescriptors();
+	BuildSceneRenderTargetDescriptors();
 
 }
 
-void MCEngine::Update(GameTimer& gt)
+// One frame, as seven named phases. D3DApp::Run calls it once per loop iteration that is
+// not a window message.
+void MCEngine::RunFrame(float dt)
+{
+	ApplyPendingRequests();
+	UpdateInput(dt);
+	BeginGpuFrame();
+	UpdateEditor();
+	UpdateLogic(dt);
+	PrepareRenderData();
+	RenderFrame();
+}
+
+void MCEngine::ApplyWindowResize()
+{
+	int w, h; 
+	if (!mPlatform.TakeResizeRequest(w, h)) return;
+	mClientWidth = w; 
+	mClientHeight = h; 
+	OnResize();
+}
+
+void MCEngine::ApplyPendingRequests()
 {
 #if defined(_DEBUG)
 	TickDebugHarness();	// safe point: command list closed, before this frame's switch and updates
 #endif
 	RefreshWindowTitle();
 
+	// ============================= SCENE SYSTEM =============================
 	if (reloadScene) {
 		reloadScene = false;
 		if (mSceneManager.GetActive()) {
 			// D9 Step 5a — RequestReload's deferred path. Routes through
 			// ReloadActiveSceneNow so the cmdlist is bracketed properly for
 			// module OnLoad GPU work (e.g. grass instance buffer upload).
-			try { ReloadActiveSceneNow(); OutputDebugStringA("[reload] active scene reloaded (deferred)\n"); }
+			try { ReloadActiveSceneNow(); MC::LoggingSystem::Info("[reload] active scene reloaded (deferred)"); }
 			catch (const std::exception& e) {
-				OutputDebugStringA(("[reload] FAIL (deferred): " + std::string(e.what()) + "\n").c_str());
+				MC::LoggingSystem::Error("[reload] FAIL (deferred): {}", e.what());
 			}
 		}
 	}
@@ -616,10 +502,10 @@ void MCEngine::Update(GameTimer& gt)
 	if (mSceneManager.HasPendingSwitch() && mAutosaveOnSwitch && mSceneManager.GetActive()) {
 		try {
 			mSceneManager.SaveActiveToRegisteredPath();
-			OutputDebugStringA("[autosave-on-switch] saved active scene\n");
+			MC::LoggingSystem::Info("[autosave-on-switch] saved active scene");
 		}
 		catch (const std::exception& e) {
-			OutputDebugStringA(("[autosave-on-switch] FAIL: " + std::string(e.what()) + "\n").c_str());
+			MC::LoggingSystem::Error("[autosave-on-switch] FAIL: {}", e.what());
 		}
 	}
 	if (mSceneManager.HasPendingSwitch()) {
@@ -627,19 +513,34 @@ void MCEngine::Update(GameTimer& gt)
 		// Switch now loads from disk — a bad file must not escape Update.
 		try { mSceneManager.ConsumePendingSwitch(); }
 		catch (const std::exception& e) {
-			OutputDebugStringA(("[switch] FAIL: " + std::string(e.what()) + "\n").c_str());
+			MC::LoggingSystem::Error("[switch] FAIL: {}", e.what());
 		}
 		EndSceneTransition();
 	}
-	float dt = gt.DeltaTime();
-#if defined(_DEBUG)
-	if (!IsHarnessDriving())	// key state is global; a sweep must not see keys typed into other windows
-		OnKeyboardInput(gt);
-#else
-	OnKeyboardInput(gt);
-#endif
-	UpdateCamera(gt);
 
+	// ============================= SHADER SYSTEM =============================
+	if (mShaderReloadRequest) {
+		mShaderReloadRequest = false;
+		ReloadShaders();
+	}
+
+	// ============================= viewport & MSAA REBUILD =============================
+	// The UI writes only the requested fields. A change is applied here, before this frame's
+	// graph is set up, so every pass and CB writer of the frame sees targets that exist.
+	const bool sizeChanged = (UINT)mRequestedSceneViewWidth != (UINT)mSceneViewWidth
+		|| (UINT)mRequestedSceneViewHeight != (UINT)mSceneViewHeight;
+	if (sizeChanged || mRequestedMsaa != mScene4xMsaaState) {
+		FlushCommandQueue();
+		mSceneViewWidth = mRequestedSceneViewWidth;
+		mSceneViewHeight = mRequestedSceneViewHeight;
+		mScene4xMsaaState = mRequestedMsaa;
+		OnSceneResize();
+		mCameraDirty = true;
+	}
+}
+
+void MCEngine::BeginGpuFrame()
+{
 	// Cycle through the circular frame resource array.
 	mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
 	mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
@@ -658,29 +559,33 @@ void MCEngine::Update(GameTimer& gt)
 		CloseHandle(eventHandle);
 	}
 	mGpuTimer.ReadbackForFrame(mCurrFrameResourceIndex);
+}
+
+void MCEngine::UpdateEditor()
+{
 	IMGUI_UPDATE();
+}
+
+void MCEngine::UpdateLogic(float dt)
+{
 	const float kTransitionSpeed = 4.0f; // units per second (ortho <-> persp lerp speed)
 	if (isOrtho)
 		mOrthoT = std::min(mOrthoT + dt * kTransitionSpeed, 1.0f);
 	else
 		mOrthoT = std::max(mOrthoT - dt * kTransitionSpeed, 0.0f);
-	UpdateObjectCBs(gt);
-	UpdateInstanceData(gt);
-	UpdateMainPassCB(gt);
-	UpdateMaterialCBs(gt);
-	MCLightManager::Get().Update(*mCurrFrameResource);
-
-	if (mSceneSizeDirty) {
-		FlushCommandQueue();
-		OnSceneResize();
-		mSceneSizeDirty = false;
-		mCameraDirty = true;
-	}
-
-	UpdateDepthDebugCB(gt);
 }
 
-void MCEngine::UpdateCamera(const GameTimer& gt)
+void MCEngine::PrepareRenderData()
+{
+	UpdateObjectCBs();
+	UpdateInstanceData();
+	UpdateMainPassCB(mPlatform.Timer());
+	UpdateMaterialCBs();
+	MCLightManager::Get().Update(*mCurrFrameResource);
+	UpdateDepthDebugCB();
+}
+
+void MCEngine::UpdateCamera()
 {
 	if (mCameraDirty) {
 		DirtyAllRenderItems();
@@ -691,7 +596,7 @@ void MCEngine::UpdateCamera(const GameTimer& gt)
 	}
 }
 
-void MCEngine::UpdateObjectCBs(const GameTimer& gt) {
+void MCEngine::UpdateObjectCBs() {
 	auto currentObjectCB = mCurrFrameResource->ObjectCB.get();
 	XMMATRIX view = mMainCamera->GetView();
 	XMVECTOR detView = XMMatrixDeterminant(view);
@@ -747,7 +652,7 @@ void MCEngine::UpdateObjectCBs(const GameTimer& gt) {
 		MCLightManager::Get().SetSceneBounds(sceneBounds);
 }
 
-void MCEngine::UpdateInstanceData(const GameTimer& gt) {
+void MCEngine::UpdateInstanceData() {
 	// if (mRitemLayer[(int)RenderLayer::OpaqueInstanced].empty())
 	//		return;
 	auto _instStart = std::chrono::high_resolution_clock::now(); // TODO - replace with CPU_TIMER
@@ -936,7 +841,7 @@ void MCEngine::UpdateMainPassCB(const GameTimer& gt) {
 	currPassCB->CopyData(0, passCB);
 }
 
-void MCEngine::UpdateMaterialCBs(const GameTimer& gt) {
+void MCEngine::UpdateMaterialCBs() {
 	auto currMatCB = mCurrFrameResource->MaterialCB.get();
 	for (auto& [h, v] : mMaterialManager.All()) {
 		MCMaterial* mat = v.get();
@@ -958,7 +863,7 @@ void MCEngine::UpdateMaterialCBs(const GameTimer& gt) {
 	}
 }
 
-void MCEngine::UpdateDepthDebugCB(const GameTimer& gt) {
+void MCEngine::UpdateDepthDebugCB() {
 	if (mDepthDebugFramesDirty <= 0)
 		return;
 	mDebugDepthCB.FarZ = farPlane;
@@ -969,7 +874,7 @@ void MCEngine::UpdateDepthDebugCB(const GameTimer& gt) {
 	--mDepthDebugFramesDirty;
 }
 
-void MCEngine::Draw(const GameTimer& gt)
+void MCEngine::RenderFrame()
 {
 	auto cmdListAlloc = mCurrFrameResource->CmdListAlloc;
 
@@ -1176,28 +1081,26 @@ void MCEngine::BuildComputeShaderConstantBufferResources()
 	auto blurBuf = std::make_unique<UploadBuffer<CSB_blur>>(md3dDevice.Get(), gNumFrameResources * 2, 1);
 	blurBuf.get()->Resource()->SetName(L"mBlurUploadBuffer");
 	mBlurUploadBuffer = std::move(blurBuf);
-	OutputDebugString(L"copied blurCB1\n");
+	MC::LoggingSystem::Debug("copied blurCB1");
 }
 
 void MCEngine::BuildSceneRenderTarget()
 {
 	// OutputDebugString(L"BuildSceneRenderTarget - Starting\n");
 	// Before any CreateCommittedResource() runs, queue old descriptors for reuse and release the resource.
-	// Guarded: D3DApp::Initialize() triggers an OnResize() before BuildDescriptorHeaps() has called DescHeapManager::Init().
-	if (mCbvSrvUavHeap != nullptr) {
-		auto& dhm = DescHeapManager::Get();
-		dhm.QueueRemoval_Texture(mSceneColor);
-		dhm.QueueRemoval_Texture(mSceneColorMSAA);
-		dhm.QueueRemoval_Texture(mSceneDepth);
-		dhm.QueueRemoval_Texture(mDepthDebugColor);
-		dhm.QueueRemoval_Texture(mBlurred0);
-		dhm.QueueRemoval_Texture(mSobelOutput);
-		// GPU is idle here (caller flushed the command queue before resize). Drain the
-		// deferred-free list immediately so BuildSceneRenderTargetDescriptors below
-		// reuses the just-retired slots. Keeps hGpu.ptr values captured earlier this
-		// frame (e.g. ImGui's ImTextureID) pointing at refreshed descriptors.
-		dhm.FlushPending();
-	}
+	// The first call, from Initialize, has no views to queue.
+	auto& dhm = DescHeapManager::Get();
+	dhm.QueueRemoval_Texture(mSceneColor);
+	dhm.QueueRemoval_Texture(mSceneColorMSAA);
+	dhm.QueueRemoval_Texture(mSceneDepth);
+	dhm.QueueRemoval_Texture(mDepthDebugColor);
+	dhm.QueueRemoval_Texture(mBlurred0);
+	dhm.QueueRemoval_Texture(mSobelOutput);
+	// GPU is idle here (caller flushed the command queue before resize). Drain the
+	// deferred-free list immediately so BuildSceneRenderTargetDescriptors below
+	// reuses the just-retired slots. Keeps hGpu.ptr values captured earlier this
+	// frame (e.g. ImGui's ImTextureID) pointing at refreshed descriptors.
+	dhm.FlushPending();
 	mSceneColor = {};
 	mSceneColorMSAA = {};
 	mSceneDepth = {};
@@ -1454,12 +1357,12 @@ void MCEngine::ReloadShaders()
         BuildShadersAndInputLayout();
         mPSOs.clear();
         BuildPSOs();
-        OutputDebugString(L"ReloadShaders: SUCCESS\n");
+        MC::LoggingSystem::Info("ReloadShaders: SUCCESS");
     }
     catch (DxException& e)
     {
         std::wstring msg = L"ReloadShaders FAILED: " + e.ToString();
-        OutputDebugStringW(msg.c_str());
+        MC::LoggingSystem::Error("{}", MC::PIL::ToUtf8(msg));
         MessageBoxW(mhMainWnd, msg.c_str(), L"Shader Reload Error", MB_OK | MB_ICONERROR);
     }
 }
@@ -1524,8 +1427,9 @@ void MCEngine::DrawInstanceRenderItems(ID3D12GraphicsCommandList* cmdList, const
 
 // phase 3; separate this from runtime, only in editor
 void MCEngine::RefreshWindowTitle() {
-	std::wstring title = mMainWndCaption;
-	title += (GetGbvState() ? L"(GBV) (fps:" : L" (fps:") + mFpsStr + L" mspf: " + mMspfStr + L") ";
+	// PlatformSystem shows its title ("MC Engine") followed by this suffix.
+	const GameTimer& timer = mPlatform.Timer();
+	std::wstring title = (GetGbvState() ? L"(GBV) (fps:" : L" (fps:") + timer.FpsText() + L" mspf: " + timer.MspfText() + L") ";
 
 	// Read the active scene's registered path directly from MCSceneManager —
 	// single source of truth. Previously this cached into MCEngine::mCurrentScenePath,
@@ -1536,7 +1440,7 @@ void MCEngine::RefreshWindowTitle() {
 	title += activePath.empty() ? L"(unsaved)" : activePath.filename().wstring();
 
 	if (mSceneDirty) title += L"*";
-	SetWindowText(mhMainWnd, title.c_str());
+	mPlatform.SetTitleSuffix(title);
 }
 
 float MCEngine::sceneAspectRatio() {

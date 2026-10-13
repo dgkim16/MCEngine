@@ -59,8 +59,9 @@ The PIX runtime DLL (`WinPixEventRuntime.dll`) is copied by its NuGet package.
 │   ├── Assets/                  # HLSL shaders, DDS textures, fonts, models
 │   ├── Source/                  # Engine sources, one directory per layer; includes are root-relative
 │   │   ├── App/                 # Entry point (Main.cpp) and the icon resource
-│   │   ├── Core/                # Math helpers, CPU timer, asset identity, JSON migration, CB free list
-│   │   ├── Platform/            # Game timer, native file dialog
+│   │   ├── PIL/                 # Platform independence layer: thin OS wrappers, one implementation file per OS (window and event pump, high-resolution timer, debug output, text encoding, file dialog, debug console, input device and engine key codes)
+│   │   ├── Core/                # Logging, math helpers, CPU timer, asset identity, JSON migration, CB free list
+│   │   ├── Platform/            # Window, event pump, input, game timer
 │   │   ├── Renderer/D3D12/      # Descriptor heaps, barriers, GPU timer, runtime HLSL compilation (DXC), FrameGraph/
 │   │   ├── Assets/              # Procedural geometry, Assimp OBJ import
 │   │   └── Legacy/              # Files waiting for their layer: MCEngine, D3DApp, scenes, asset managers, passes, ImGui editor
@@ -74,9 +75,13 @@ The PIX runtime DLL (`WinPixEventRuntime.dll`) is copied by its NuGet package.
 
 ## Architecture at a glance
 
-The engine is layered.
+The engine is layered in the style of Gregory's *Game Engine Architecture* (ch. 1.6): each band may use only the bands below it. The audit (`Tools/audit.ps1`) enforces the include direction for `PIL`, `Core`, `Platform` and `Renderer`. Only `PIL` calls the OS (rule A14 for debug output). `Legacy` is not yet checked; the refactor moves its contents into the lower bands and an engine, editor and scene layer.
 
-**Common framework (`D3DApp` in `MC_Engine/Source/Legacy/`).** Provides the D3D12 base class `D3DApp` taken from Frank Luna's demos: window creation, device and swap-chain setup, command queue, triple-buffered command allocators, fence-based CPU/GPU synchronization, and per-frame constant buffers (pass, object, material). Its helpers now sit in their layers: procedural geometry (`Assets/GeometryGenerator`), math helpers (`Core/MathHelper`), a DDS texture loader (`Renderer/D3D12/ThirdParty/`), and upload-heap staging utilities (`Renderer/D3D12/UploadHelper.h`).
+![Engine layers](MC_Engine/Assets/readme/engine_layers.svg)
+
+The goal is that nothing above the bottom layers knows which graphics API or OS it runs on. Today the third-party SDKs sit beside the PIL instead of under it, because code above calls D3D12, DirectXMath and Win32 directly; those boxes are grey. Grey also marks everything in `Legacy`, which is not refactored yet. The planned exceptions are the shaders, because bindless resources need SM 6.6 on D3D12, and the ImGui backends, which are OS- and API-specific by design and should still be reached through a lower layer.
+
+**`D3DApp` (`MC_Engine/Source/Legacy/`).** The D3D12 base class taken from Frank Luna's demos, reduced in S4 to the device: device and swap-chain setup, command queue, triple-buffered command allocators, fence-based CPU/GPU synchronization, and per-frame constant buffers (pass, object, material). The window, message pump, input and timer moved to `PlatformSystem` and the PIL. Its helpers now sit in their layers: procedural geometry (`Assets/GeometryGenerator`), math helpers (`Core/MathHelper`), a DDS texture loader (`Renderer/D3D12/ThirdParty/`), and upload-heap staging utilities (`Renderer/D3D12/UploadHelper.h`).
 
 **MCEngine (`MC_Engine/Source/Legacy/MCEngine.cpp`).** The application class, derived from `D3DApp`.
 - **What it owns.** The descriptor heaps, root signatures, PSOs, scene render targets, frame resources, the frame graph and its passes, and the ImGui editor.
@@ -144,16 +149,18 @@ flowchart LR
       R2["S2 Memory-safety fixes"]
       R3["S3 FrameGraph decoupling"]
       R4["S4 Platform extraction, run loop"]
+      RL["PIL + OS-neutral logging<br/>(Core/LoggingSystem)"]
       R5["S5 Frame phases, one safe point<br/>(stop point 1)"]
+      RM["Engine math types<br/>(Core/Math)"]
       R6["S6 Backend services"]
       R7["S7 Self-contained passes"]
-      R8["S8 Renderer boundary<br/>(stop point 2)"]
+      R8["S8 RHI, renderer boundary<br/>(stop point 2)"]
       R9["S9 Stream, CPU-only asset layer"]
       R10["S10 Entities, components, scene v2<br/>(stop point 3)"]
       R11["S11 Archetypes, diff-only save"]
       R12["S12 Editor system"]
       R13["S13 Close-out: MCEngine, D3DApp, legacy bridges deleted"]
-      R0 --> R2 --> R3 --> R4 --> R5 --> R6 --> R7 --> R8 --> R9 --> R10 --> R11 --> R12 --> R13
+      R0 --> R2 --> R3 --> R4 --> RL --> R5 --> RM --> R6 --> R7 --> R8 --> R9 --> R10 --> R11 --> R12 --> R13
     end
     SPLIT["MCCore / MCEditor / MCRuntime split"]
     CK["Offline asset cooker"]
@@ -193,9 +200,9 @@ flowchart LR
   classDef done fill:#2e7d32,stroke:#1b5e20,color:#fff
   classDef wip fill:#f9a825,stroke:#f57f17,color:#000
   classDef todo fill:#455a64,stroke:#263238,color:#fff
-  class BM,JS,ED,GT,FG,R0,R2,R3,LSP done
-  class R4 wip
-  class R5,R6,R7,R8,R9,R10,R11,R12,R13 todo
+  class BM,JS,ED,GT,FG,R0,R2,R3,R4,RL,LSP done
+  class R5 wip
+  class RM,R6,R7,R8,R9,R10,R11,R12,R13 todo
   class SPLIT,CK,EX,DEMO,V1 todo
   class DEF,PBR,IBL,CSM,CL,AO,SP2 todo
 ```
@@ -214,8 +221,10 @@ Instrumentation and abstractions every later item assumes. All items have shippe
 
 1. **Complete refactor, independent of Frank Luna's skeleton.** A staged restructure for readability, maintainability and modularity. It ends with no code left from the book's sample framework: `D3DApp`, `d3dUtil` and the `MCEngine` class built on them are replaced by the engine's own platform, backend and engine layers. It comes before most graphics work so new features land on clean seams. Every commit builds and matches the captured baseline. Each stage is listed with the state it ends in:
    - ✓ **S0–S3** — baseline captures; hygiene and the `Source/` layout; memory-safety fixes; the frame graph decoupled from `MCEngine`.
-   - **S4–S5** *(S4 in progress)* — platform and input extracted from `D3DApp`; the frame split into named phases with one safe point for GPU-affecting changes.
-   - **S6–S8** — backend services owned explicitly, passes that bind their own state, and all D3D12 behind an API-agnostic `Renderer` interface.
+   - **S4–S5** *(S4 done, S5 in progress)* — platform and input extracted from `D3DApp`; the frame split into named phases with one safe point for GPU-affecting changes.
+   - ✓ **Between S4 and S5** — a platform independence layer and OS-neutral logging. A thin `PIL` layer below `Core` wraps the OS (window and event pump, display query, high-resolution timer, input device, debugger output, text encoding, file dialog, debug console), with one implementation file per OS; `Core/LoggingSystem` is built on it, and engine code logs through `LoggingSystem` instead of calling `OutputDebugString` (audit rule A14). `PlatformSystem`, `Input` and `GameTimer` stay above `Core` and contain no OS code.
+   - **Between S5 and S6** — engine math types. Engine-owned `Vec2`/`Vec3`/`Vec4`, `Quat` and `Mat4` in `Core/Math`, implemented on DirectXMath for now, so that no code outside `Core/Math`, the D3D12 backend and `Legacy` names DirectXMath. Their shape follows the CS529 engine's vector and matrix classes and the CS541 framework's transform functions; neither is copied.
+   - **S6–S8** — backend services owned explicitly, passes that bind their own state, and an RHI: the frame graph, the passes and the `Renderer` interface written against engine-owned graphics types, with D3D12 as the one backend below them.
    - **S9–S11** — `Stream`-based serialization, a CPU-only asset layer, an entity–component object model replacing `RenderItem` (classic component composition, not ECS: an `Engine` that owns systems, scenes of entities composed of components), and prefabs (archetypes) with per-instance overrides.
    - **S12–S13** — the editor as its own system; `MCEngine`, `D3DApp` and the legacy bridges deleted.
 2. Split into `MCCore` (static library, headless), `MCEditor` (ImGui host), and `MCRuntime` (shippable executable that never links ImGui or the debug layer).

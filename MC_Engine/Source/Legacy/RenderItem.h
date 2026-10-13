@@ -6,6 +6,7 @@
 #include "Renderer/D3D12/MCMeshGeometry.h"
 #include "Core/AssetIdentity.h"
 #include "Renderer/D3D12/ConstExpressionValues.h"
+#include <bit>	// std::popcount
 // extern const int gNumFrameResources;
 
 struct InstanceCell {

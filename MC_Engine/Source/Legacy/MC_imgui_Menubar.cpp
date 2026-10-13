@@ -1,6 +1,6 @@
 #include "Legacy/MCEngine.h"
 #include "Legacy/MCScene.h"
-#include "Platform/FileDialog.h"
+#include "PIL/FileDialog.h"
 #include <fstream>
 #include "imgui.h"
 #include "imgui_impl_win32.h"
@@ -13,7 +13,7 @@ void MCEngine::IMGUI_MENUBAR() {
             if (ImGui::MenuItem("Save", "Ctrl+S")) { FileMenuSave(); }
             if (ImGui::MenuItem("Save As...")) { FileMenuSaveAs(); }
             ImGui::Separator();
-            if (ImGui::MenuItem("Exit")) { PostMessage(mhMainWnd, WM_CLOSE, 0, 0); }
+            if (ImGui::MenuItem("Exit")) { mPlatform.RequestClose(); }
             ImGui::EndMenu();
         } 
         if (ImGui::BeginMenu("Create")) {
@@ -49,17 +49,19 @@ DirtyChoice PromptDirtyChoice(HWND owner,
         : DirtyChoice::Cancel;
 }
 
-std::optional<std::filesystem::path> ShowSaveSceneDialog(HWND owner) {
-    return MCFileDialog::Show(MCFileDialog::Mode::Save,
-        "Assets/scenes/", L"Scene JSON", L"*.json", owner);
+namespace FileDialog = MC::PIL::FileDialog;
+
+std::optional<std::filesystem::path> ShowSaveSceneDialog(void* owner) {
+    return FileDialog::Show(FileDialog::Mode::Save,
+        "Assets/scenes/", "Scene JSON", "*.json", owner);
 }
-std::optional<std::filesystem::path> ShowOpenSceneDialog(HWND owner) {
-    return MCFileDialog::Show(MCFileDialog::Mode::Open,
-        "Assets/scenes/", L"Scene JSON", L"*.json", owner);
+std::optional<std::filesystem::path> ShowOpenSceneDialog(void* owner) {
+    return FileDialog::Show(FileDialog::Mode::Open,
+        "Assets/scenes/", "Scene JSON", "*.json", owner);
 }
-std::optional<std::filesystem::path> ShowSaveMaterialDialog(HWND owner) {
-    return MCFileDialog::Show(MCFileDialog::Mode::Save,
-        "Assets/materials/", L"Material .mcmat", L"*.mcmat", owner);
+std::optional<std::filesystem::path> ShowSaveMaterialDialog(void* owner) {
+    return FileDialog::Show(FileDialog::Mode::Save,
+        "Assets/materials/", "Material .mcmat", "*.mcmat", owner);
 }
 
 bool MCEngine::FileMenuSave() {
@@ -78,7 +80,7 @@ bool MCEngine::FileMenuSave() {
 }
 
 bool MCEngine::FileMenuSaveAs() {
-    auto picked = ShowSaveSceneDialog(mhMainWnd);
+    auto picked = ShowSaveSceneDialog(mPlatform.NativeWindow());
     if (!picked) return false;        // user cancelled the dialog
     auto* scene = mSceneManager.GetActive();
     if (!scene) return false;
@@ -93,7 +95,7 @@ bool MCEngine::FileMenuSaveAs() {
 }
 
 void MCEngine::FileMenuOpenScene(const std::string& path) {
-    auto picked = path.empty() ? ShowOpenSceneDialog(mhMainWnd)
+    auto picked = path.empty() ? ShowOpenSceneDialog(mPlatform.NativeWindow())
                                : std::optional<std::filesystem::path>(path);
     if (!picked) return;
 
@@ -150,7 +152,7 @@ void MCEngine::FileMenuOpenScene(const std::string& path) {
 }
 
 void MCEngine::FileMenuCreateScene() {
-    auto picked = ShowSaveSceneDialog(mhMainWnd);
+    auto picked = ShowSaveSceneDialog(mPlatform.NativeWindow());
     if (!picked) return;
 
     const std::string name = picked->stem().string();   // sceneName = filename stem
@@ -170,7 +172,7 @@ void MCEngine::FileMenuCreateScene() {
 }
 
 void MCEngine::FileMenuCreateMaterial() {
-    auto picked = ShowSaveMaterialDialog(mhMainWnd);
+    auto picked = ShowSaveMaterialDialog(mPlatform.NativeWindow());
     if (!picked) return;
     const std::string name = picked->stem().string();
 

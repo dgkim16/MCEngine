@@ -9,5 +9,10 @@ A1 Renderer\D3D12\BarrierManager.cpp
 A1 Renderer\D3D12\ThirdParty\DDSTextureLoader.cpp
 A12 Renderer\D3D12\ThirdParty\DDSTextureLoader.cpp
 
+# Bridge: the D3D12 backend still writes raw debug output (d3dUtil, DescHeapManager.h,
+# FrameGraph, ShaderLibDx). Removed in S8.9, when the backend logs through
+# Core\LoggingSystem (FrameGraph's calls go in S8.7).
+A14 Renderer\D3D12\**
+
 # Legacy\ file count. Lower it whenever files leave Legacy\; it must never grow.
 A9 53

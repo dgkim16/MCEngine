@@ -1,8 +1,8 @@
 #include <assimp/Importer.hpp>
+#include "Core/LoggingSystem.h"
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include "Assets/ModelLoader.h"
-#include <Windows.h>
 
 using namespace DirectX;
 
@@ -30,7 +30,7 @@ bool ModelLoader::LoadObjToVertexIndexBuffers(
 
 	if (!scene || !scene->mRootNode || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE))
 	{
-		OutputDebugStringA(importer.GetErrorString());
+		MC::LoggingSystem::Error("{}", importer.GetErrorString());
 		//std::cerr << importer.GetErrorString() << std::endl;
 		return false;
 	}

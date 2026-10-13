@@ -1,4 +1,5 @@
 #include "Legacy/MCTextureManager.h"
+#include "Core/LoggingSystem.h"
 #include "Legacy/MCEngine.h"
 #include "Legacy/MCSceneManager.h"   // RecordAssetRedirect (Step 9d)
 #include "Renderer/D3D12/DescHeapManager.h"
@@ -213,7 +214,7 @@ TextureHandle MCTextureManager::Rename(TextureHandle oldHandle, const std::strin
         std::filesystem::rename(oldPath, newPath, ec);
         mTexturePaths.erase(pIt);
         mTexturePaths[newHandle] = newPath.string();
-        if (ec) OutputDebugStringA(("MCTextureManager::Rename: filesystem rename failed: " + ec.message() + "\n").c_str());
+        if (ec) MC::LoggingSystem::Error("MCTextureManager::Rename: filesystem rename failed: {}", ec.message());
         // Re-save asset so its internal displayName/handle JSON fields are self-consistent.
         Save(newHandle, mTexturePaths[newHandle]);
     }

@@ -1,0 +1,191 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="869" viewBox="0 0 1000 869" font-family="Arial, Helvetica, sans-serif" fill="#111111">
+<rect width="1000" height="869" fill="#ffffff"/>
+<rect x="10" y="10" width="980" height="68" fill="#e8e8e8" stroke="#4d4d4d" stroke-width="1"/>
+<text x="500" y="22" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="500" dy="0">App — Source/App</tspan></text>
+<rect x="18" y="32" width="316" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="176" y="44.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="176" dy="0">WinMain (Main.cpp)</tspan><tspan x="176" dy="13">CRT flags, MessageBoxA</tspan></text>
+<rect x="342" y="32" width="316" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="500" y="44.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="500" dy="0">Debug console</tspan><tspan x="500" dy="13">(PIL::CreateDebugConsole)</tspan></text>
+<rect x="666" y="32" width="316" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="824" y="44.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="824" dy="0">Constructs and</tspan><tspan x="824" dy="13">runs MCEngine</tspan></text>
+<rect x="10" y="86" width="980" height="264" fill="#e8e8e8" stroke="#4d4d4d" stroke-width="1"/>
+<text x="500" y="98" font-size="13" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="500" dy="0">Legacy — Source/Legacy (dissolved into the layers below by S13)</tspan></text>
+<rect x="18" y="108" width="235" height="113" fill="#cdcdcd" stroke="#4d4d4d" stroke-width="1"/>
+<text x="135.5" y="120" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="135.5" dy="0">MCEngine</tspan></text>
+<rect x="26" y="130" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="78.75" y="149" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="78.75" dy="0">Run loop</tspan></text>
+<rect x="139.5" y="130" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="192.25" y="149" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="192.25" dy="0">RunFrame phases</tspan></text>
+<rect x="26" y="175" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="78.75" y="187.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="78.75" dy="0">Safe point</tspan><tspan x="78.75" dy="13">(pending requests)</tspan></text>
+<rect x="139.5" y="175" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="192.25" y="187.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="192.25" dy="0">Render setup</tspan><tspan x="192.25" dy="13">(heaps, PSOs)</tspan></text>
+<rect x="261" y="108" width="235" height="113" fill="#cdcdcd" stroke="#4d4d4d" stroke-width="1"/>
+<text x="378.5" y="120" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="378.5" dy="0">Editor (ImGui)</tspan></text>
+<rect x="269" y="130" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="321.75" y="142.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="321.75" dy="0">Outliner &amp;</tspan><tspan x="321.75" dy="13">Inspector</tspan></text>
+<rect x="382.5" y="130" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="435.25" y="142.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="435.25" dy="0">Menu bar &amp;</tspan><tspan x="435.25" dy="13">file dialogs</tspan></text>
+<rect x="269" y="175" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="321.75" y="187.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="321.75" dy="0">Translation gizmo</tspan><tspan x="321.75" dy="13">(ImGuizmo)</tspan></text>
+<rect x="382.5" y="175" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="435.25" y="187.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="435.25" dy="0">Heap &amp; FrameGraph</tspan><tspan x="435.25" dy="13">viewers</tspan></text>
+<rect x="504" y="108" width="235" height="113" fill="#cdcdcd" stroke="#4d4d4d" stroke-width="1"/>
+<text x="621.5" y="120" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="621.5" dy="0">Scenes</tspan></text>
+<rect x="512" y="130" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="564.75" y="142.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="564.75" dy="0">MCSceneManager</tspan><tspan x="564.75" dy="13">(load on switch)</tspan></text>
+<rect x="625.5" y="130" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="678.25" y="149" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="678.25" dy="0">MCScene</tspan></text>
+<rect x="512" y="175" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="564.75" y="187.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="564.75" dy="0">Scene modules</tspan><tspan x="564.75" dy="13">(grass culling)</tspan></text>
+<rect x="625.5" y="175" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="678.25" y="187.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="678.25" dy="0">Scene</tspan><tspan x="678.25" dy="13">serialization</tspan></text>
+<rect x="747" y="108" width="235" height="113" fill="#cdcdcd" stroke="#4d4d4d" stroke-width="1"/>
+<text x="864.5" y="120" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="864.5" dy="0">Asset Managers</tspan></text>
+<rect x="755" y="130" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="807.75" y="142.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="807.75" dy="0">Material</tspan><tspan x="807.75" dy="13">manager</tspan></text>
+<rect x="868.5" y="130" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="921.25" y="142.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="921.25" dy="0">Texture</tspan><tspan x="921.25" dy="13">manager</tspan></text>
+<rect x="755" y="175" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="807.75" y="187.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="807.75" dy="0">Mesh source</tspan><tspan x="807.75" dy="13">manager</tspan></text>
+<rect x="868.5" y="175" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="921.25" y="187.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="921.25" dy="0">Material</tspan><tspan x="921.25" dy="13">hot reload</tspan></text>
+<rect x="18" y="229" width="235" height="113" fill="#cdcdcd" stroke="#4d4d4d" stroke-width="1"/>
+<text x="135.5" y="241" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="135.5" dy="0">Render Passes</tspan></text>
+<rect x="26" y="251" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="78.75" y="263.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="78.75" dy="0">Shadow</tspan><tspan x="78.75" dy="13">(one per light)</tspan></text>
+<rect x="139.5" y="251" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="192.25" y="263.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="192.25" dy="0">Opaque, instanced,</tspan><tspan x="192.25" dy="13">grass</tspan></text>
+<rect x="26" y="296" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="78.75" y="308.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="78.75" dy="0">Alpha-tested,</tspan><tspan x="78.75" dy="13">transparent, mirrors</tspan></text>
+<rect x="139.5" y="296" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="192.25" y="308.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="192.25" dy="0">Post: blur, Sobel,</tspan><tspan x="192.25" dy="13">depth view</tspan></text>
+<rect x="261" y="229" width="235" height="113" fill="#cdcdcd" stroke="#4d4d4d" stroke-width="1"/>
+<text x="378.5" y="241" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="378.5" dy="0">Scene Objects</tspan></text>
+<rect x="269" y="251" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="321.75" y="270" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="321.75" dy="0">Camera</tspan></text>
+<rect x="382.5" y="251" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="435.25" y="263.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="435.25" dy="0">MCLight</tspan><tspan x="435.25" dy="13">(LiSPSM shadows)</tspan></text>
+<rect x="269" y="296" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="321.75" y="315" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="321.75" dy="0">Picker</tspan></text>
+<rect x="382.5" y="296" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="435.25" y="308.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="435.25" dy="0">RenderItem</tspan><tspan x="435.25" dy="13">(layer bitmask)</tspan></text>
+<rect x="504" y="229" width="235" height="113" fill="#cdcdcd" stroke="#4d4d4d" stroke-width="1"/>
+<text x="621.5" y="241" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="621.5" dy="0">D3DApp</tspan></text>
+<rect x="512" y="251" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="564.75" y="263.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="564.75" dy="0">Device &amp;</tspan><tspan x="564.75" dy="13">swap chain</tspan></text>
+<rect x="625.5" y="251" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="678.25" y="263.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="678.25" dy="0">Command queue</tspan><tspan x="678.25" dy="13">&amp; allocators</tspan></text>
+<rect x="512" y="296" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="564.75" y="315" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="564.75" dy="0">Fence sync</tspan></text>
+<rect x="625.5" y="296" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="678.25" y="308.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="678.25" dy="0">Back buffers</tspan><tspan x="678.25" dy="13">&amp; window DSV</tspan></text>
+<rect x="747" y="229" width="235" height="113" fill="#cdcdcd" stroke="#4d4d4d" stroke-width="1"/>
+<text x="864.5" y="241" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="864.5" dy="0">Debug Harness</tspan></text>
+<rect x="755" y="251" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="807.75" y="263.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="807.75" dy="0">Capture sweep</tspan><tspan x="807.75" dy="13">(--capture-sweep)</tspan></text>
+<rect x="868.5" y="251" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="921.25" y="263.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="921.25" dy="0">Asset tests</tspan><tspan x="921.25" dy="13">(--run-tests)</tspan></text>
+<rect x="755" y="296" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="807.75" y="308.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="807.75" dy="0">D3D12 message log</tspan><tspan x="807.75" dy="13">(--verify-log)</tspan></text>
+<rect x="868.5" y="296" width="105.5" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="921.25" y="308.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="921.25" dy="0">Pass poisoning</tspan><tspan x="921.25" dy="13">(--poison)</tspan></text>
+<rect x="10" y="358" width="250.64000000000001" height="158" fill="#e8e8e8" stroke="#4d4d4d" stroke-width="1"/>
+<text x="135.32" y="370" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="135.32" dy="0">Platform — Source/Platform</tspan></text>
+<rect x="18" y="380" width="234.64000000000001" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="135.32" y="392.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="135.32" dy="0">PlatformSystem</tspan><tspan x="135.32" dy="13">(pause, resize, close)</tspan></text>
+<rect x="18" y="425" width="234.64000000000001" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="135.32" y="437.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="135.32" dy="0">Input</tspan><tspan x="135.32" dy="13">(MC::Key state, gates)</tspan></text>
+<rect x="18" y="470" width="234.64000000000001" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="135.32" y="482.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="135.32" dy="0">GameTimer</tspan><tspan x="135.32" dy="13">(delta time, FPS cap)</tspan></text>
+<rect x="268.64" y="358" width="482" height="158" fill="#e8e8e8" stroke="#4d4d4d" stroke-width="1"/>
+<text x="509.64" y="370" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="509.64" dy="0">Low-Level Renderer — Source/Renderer/D3D12</tspan></text>
+<rect x="276.64" y="380" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="351.64" y="392.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="351.64" dy="0">FrameGraph</tspan><tspan x="351.64" dy="13">(order, cull, alias)</tspan></text>
+<rect x="434.64" y="380" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="509.64" y="399" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="509.64" dy="0">BarrierManager</tspan></text>
+<rect x="592.64" y="380" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="667.64" y="392.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="667.64" dy="0">DescHeapManager</tspan><tspan x="667.64" dy="13">(bindless tiers)</tspan></text>
+<rect x="276.64" y="425" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="351.64" y="437.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="351.64" dy="0">ShaderLibDx</tspan><tspan x="351.64" dy="13">(DXC, SM 6.6)</tspan></text>
+<rect x="434.64" y="425" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="509.64" y="437.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="509.64" dy="0">GpuTimer</tspan><tspan x="509.64" dy="13">(timestamps)</tspan></text>
+<rect x="592.64" y="425" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="667.64" y="437.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="667.64" dy="0">RenderPass &amp;</tspan><tspan x="667.64" dy="13">LambdaPass</tspan></text>
+<rect x="276.64" y="470" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="351.64" y="482.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="351.64" dy="0">FrameResource &amp;</tspan><tspan x="351.64" dy="13">UploadHelper</tspan></text>
+<rect x="434.64" y="470" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="509.64" y="482.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="509.64" dy="0">MCMeshGeometry &amp;</tspan><tspan x="509.64" dy="13">DDSTextureLoader</tspan></text>
+<rect x="592.64" y="470" width="150" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="667.64" y="482.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="667.64" dy="0">d3dUtil</tspan><tspan x="667.64" dy="13">(Luna helpers)</tspan></text>
+<rect x="758.64" y="358" width="231.35999999999999" height="158" fill="#e8e8e8" stroke="#4d4d4d" stroke-width="1"/>
+<text x="874.3199999999999" y="370" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="874.3199999999999" dy="0">Resources — Source/Assets</tspan></text>
+<rect x="766.64" y="380" width="215.35999999999999" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="874.3199999999999" y="392.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="874.3199999999999" dy="0">ModelLoader</tspan><tspan x="874.3199999999999" dy="13">(assimp import)</tspan></text>
+<rect x="766.64" y="425" width="215.35999999999999" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="874.3199999999999" y="437.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="874.3199999999999" dy="0">GeometryGenerator</tspan><tspan x="874.3199999999999" dy="13">(DirectXMath)</tspan></text>
+<rect x="10" y="524" width="980" height="68" fill="#e8e8e8" stroke="#4d4d4d" stroke-width="1"/>
+<text x="500" y="536" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="500" dy="0">Core Systems — Source/Core</tspan></text>
+<rect x="18" y="546" width="154" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="95" y="565" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="95" dy="0">LoggingSystem</tspan></text>
+<rect x="180" y="546" width="154" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="257" y="565" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="257" dy="0">JsonMigrator</tspan></text>
+<rect x="342" y="546" width="154" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="419" y="558.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="419" dy="0">AssetIdentity</tspan><tspan x="419" dy="13">(XXH64 handles)</tspan></text>
+<rect x="504" y="546" width="154" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="581" y="565" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="581" dy="0">CBFreeList</tspan></text>
+<rect x="666" y="546" width="154" height="38" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="743" y="558.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="743" dy="0">MathHelper</tspan><tspan x="743" dy="13">(DirectXMath)</tspan></text>
+<rect x="828" y="546" width="154" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="905" y="565" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="905" dy="0">CpuTimer</tspan></text>
+<rect x="10" y="600" width="563.76" height="113" fill="#e8e8e8" stroke="#4d4d4d" stroke-width="1"/>
+<text x="291.88" y="612" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="291.88" dy="0">Platform Independence Layer — Source/PIL</tspan></text>
+<rect x="18" y="622" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="69.576" y="641" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="69.576" dy="0">NativeWindow</tspan></text>
+<rect x="129.152" y="622" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="180.72799999999998" y="641" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="180.72799999999998" dy="0">WindowEvent</tspan></text>
+<rect x="240.304" y="622" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="291.88" y="641" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="291.88" dy="0">EventPump</tspan></text>
+<rect x="351.456" y="622" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="403.03200000000004" y="641" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="403.03200000000004" dy="0">Display</tspan></text>
+<rect x="462.608" y="622" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="514.184" y="641" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="514.184" dy="0">PerformanceTimer</tspan></text>
+<rect x="18" y="667" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="69.576" y="686" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="69.576" dy="0">InputDevice</tspan></text>
+<rect x="129.152" y="667" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="180.72799999999998" y="686" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="180.72799999999998" dy="0">FileDialog</tspan></text>
+<rect x="240.304" y="667" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="291.88" y="686" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="291.88" dy="0">DebugConsole</tspan></text>
+<rect x="351.456" y="667" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="403.03200000000004" y="686" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="403.03200000000004" dy="0">DebugOutput</tspan></text>
+<rect x="462.608" y="667" width="103.152" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="514.184" y="686" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="514.184" dy="0">TextEncoding</tspan></text>
+<rect x="581.76" y="600" width="408.24" height="113" fill="#e8e8e8" stroke="#4d4d4d" stroke-width="1"/>
+<text x="785.88" y="612" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="785.88" dy="0">3rd Party SDKs</tspan></text>
+<rect x="589.76" y="622" width="92.06" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="635.79" y="641" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="635.79" dy="0">D3D12 / DXGI</tspan></text>
+<rect x="689.8199999999999" y="622" width="92.06" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="735.8499999999999" y="641" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="735.8499999999999" dy="0">DXC</tspan></text>
+<rect x="789.88" y="622" width="92.06" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="835.91" y="641" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="835.91" dy="0">DirectXMath</tspan></text>
+<rect x="889.94" y="622" width="92.06" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="935.97" y="634.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="935.97" dy="0">WinPixEvent</tspan><tspan x="935.97" dy="13">Runtime</tspan></text>
+<rect x="589.76" y="667" width="92.06" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="635.79" y="679.5" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="635.79" dy="0">Dear ImGui</tspan><tspan x="635.79" dy="13">+ ImGuizmo</tspan></text>
+<rect x="689.8199999999999" y="667" width="92.06" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="735.8499999999999" y="686" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="735.8499999999999" dy="0">assimp</tspan></text>
+<rect x="789.88" y="667" width="92.06" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="835.91" y="686" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="835.91" dy="0">nlohmann/json</tspan></text>
+<rect x="889.94" y="667" width="92.06" height="38" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="935.97" y="686" font-size="11" text-anchor="middle" dominant-baseline="central"><tspan x="935.97" dy="0">xxHash</tspan></text>
+<rect x="10" y="721" width="980" height="30" fill="#a9a9a9" stroke="#4d4d4d" stroke-width="1"/>
+<text x="500" y="736" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="500" dy="0">OS — Windows (Win32, COM)</tspan></text>
+<rect x="10" y="751" width="980" height="30" fill="#939393" stroke="#4d4d4d" stroke-width="1"/>
+<text x="500" y="766" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="500" dy="0">Drivers — D3D12 runtime, GPU driver</tspan></text>
+<rect x="10" y="781" width="980" height="30" fill="#7d7d7d" stroke="#4d4d4d" stroke-width="1"/>
+<text x="500" y="796" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="central"><tspan x="500" dy="0">Hardware — x64 PC, D3D12 GPU</tspan></text>
+<rect x="10" y="821" width="26" height="16" fill="#ffffff" stroke="#4d4d4d" stroke-width="1"/>
+<text x="44" y="829" font-size="11" dominant-baseline="central">Unaware of the graphics API and the OS; uses only the layers below it</text>
+<rect x="10" y="843" width="26" height="16" fill="#9a9a9a" stroke="#4d4d4d" stroke-width="1"/>
+<text x="44" y="851" font-size="11" dominant-baseline="central">Not refactored yet, or calls D3D12, DirectX or Win32 directly instead of through a lower layer</text>
+</svg>

@@ -2,15 +2,14 @@
 // GameTimer.cpp by Frank Luna (C) 2011 All Rights Reserved.
 //***************************************************************************************
 
-#include <windows.h>
 #include "Platform/GameTimer.h"
+#include "PIL/PerformanceTimer.h"
 
 GameTimer::GameTimer()
 	: mSecondsPerCount(0.0), mDeltaTime(-1.0), mBaseTime(0),
 	mPausedTime(0), mPrevTime(0), mCurrTime(0), mStopped(false)
 {
-	__int64 countsPerSec;
-	QueryPerformanceFrequency((LARGE_INTEGER*)&countsPerSec);
+	const std::int64_t countsPerSec = MC::PIL::PerformanceTimer::TicksPerSecond();
 	mSecondsPerCount = 1.0 / (double)countsPerSec;
 }
 
@@ -55,19 +54,41 @@ float GameTimer::DeltaTime()const
 
 void GameTimer::Reset()
 {
-	__int64 currTime;
-	QueryPerformanceCounter((LARGE_INTEGER*)&currTime);
+	const std::int64_t currTime = MC::PIL::PerformanceTimer::Ticks();
 
 	mBaseTime = currTime;
 	mPrevTime = currTime;
+	mPausedTime = 0;	// pauses before the new base time are not part of TotalTime
 	mStopTime = 0;
 	mStopped = false;
 }
 
+void GameTimer::CalculateFrameStats()
+{
+	// Code computes the average frames per second, and also the
+	// average time it takes to render one frame.  These stats
+	// are appended to the window caption bar.
+
+	mFrameCnt++;
+
+	// Compute averages over one second period.
+	if ((TotalTime() - mTimeElapsed) >= 1.0f)
+	{
+		float fps = (float)mFrameCnt; // fps = frameCnt / 1
+		float mspf = 1000.0f / fps;
+
+		mFpsStr = std::to_wstring(static_cast<int>(fps));
+		mMspfStr = std::to_wstring(static_cast<int>(mspf));
+
+		// Reset for next average.
+		mFrameCnt = 0;
+		mTimeElapsed += 1.0f;
+	}
+}
+
 void GameTimer::Start()
 {
-	__int64 startTime;
-	QueryPerformanceCounter((LARGE_INTEGER*)&startTime);
+	const std::int64_t startTime = MC::PIL::PerformanceTimer::Ticks();
 
 
 	// Accumulate the time elapsed between stop and start pairs.
@@ -90,8 +111,7 @@ void GameTimer::Stop()
 {
 	if (!mStopped)
 	{
-		__int64 currTime;
-		QueryPerformanceCounter((LARGE_INTEGER*)&currTime);
+		const std::int64_t currTime = MC::PIL::PerformanceTimer::Ticks();
 
 		mStopTime = currTime;
 		mStopped = true;
@@ -106,9 +126,7 @@ void GameTimer::Tick()
 		return;
 	}
 
-	__int64 currTime;
-	QueryPerformanceCounter((LARGE_INTEGER*)&currTime);
-	mCurrTime = currTime;
+	mCurrTime = MC::PIL::PerformanceTimer::Ticks();
 
 	// Time difference between this frame and the previous.
 	mDeltaTime = (mCurrTime - mPrevTime) * mSecondsPerCount;

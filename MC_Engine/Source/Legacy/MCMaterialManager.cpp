@@ -1,4 +1,5 @@
 #include "Legacy/MCMaterialManager.h"
+#include "Core/LoggingSystem.h"
 #include "Legacy/MCEngine.h"
 #include "Legacy/MCSceneManager.h"   // RecordAssetRedirect
 #include <filesystem>          // .mcmat file rename in Rename
@@ -196,7 +197,7 @@ MaterialHandle MCMaterialManager::Rename(MaterialHandle oldHandle, const std::st
         std::filesystem::rename(oldPath, newPath, ec);
         mMaterialPaths.erase(pIt);
         mMaterialPaths[newHandle] = newPath.string();
-        if (ec) OutputDebugStringA(("MCMaterialManager::Rename: filesystem rename failed: " + ec.message() + "\n").c_str());
+        if (ec) MC::LoggingSystem::Error("MCMaterialManager::Rename: filesystem rename failed: {}", ec.message());
         Save(newHandle, mMaterialPaths[newHandle]);
     }
 

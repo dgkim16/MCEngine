@@ -1,11 +1,21 @@
 #include "Legacy/MCEngine.h"
-#include <WindowsX.h>
+#include "imgui.h"
 #include "Legacy/MC_Picker.h"
 
-void MCEngine::OnMouseDown(WPARAM btnState, int x, int y)
+void MCEngine::UpdateInput(float dt)
 {
-	if ((btnState & MK_LBUTTON) != 0) {
-		if (mSceneImageHovered) {
+	UpdateInput(mPlatform.GetInput(), dt);
+	UpdateCamera();
+}
+
+// placeholder code for old code to work with MC::Input & MC::PlatformSystem
+void MCEngine::UpdateInput(const MC::Input& input, float dt)
+{
+	using Button = MC::Input::MouseButton;
+
+	if (input.MouseEnabled())
+	{
+		if (input.WasMousePressed(Button::Left)) {
 			MC_Picker& picker = MC_Picker::GetPicker(*this);
 			if (auto* scene = mSceneManager.GetActive()) {
 				int picked = picker.PickRenderItemOnScreen(GetSceneMousePos(), *scene);
@@ -13,94 +23,74 @@ void MCEngine::OnMouseDown(WPARAM btnState, int x, int y)
 				mSelectedItemIndex = picked;
 			}
 		}
+
+		// A drag moves the camera by this frame's mouse movement: the middle button pans,
+		// the right button looks around. A held left button blocks both.
+		const bool mouseMoved = input.MouseDeltaX() != 0 || input.MouseDeltaY() != 0;
+		if (mouseMoved && !input.IsMouseDown(Button::Left))
+		{
+			if (input.IsMouseDown(Button::Middle))
+			{
+				// Make each pixel correspond to 0.005 unit in the scene.
+				float dx = 0.005f * static_cast<float>(input.MouseDeltaX());
+				float dy = 0.005f * static_cast<float>(input.MouseDeltaY());
+				mMainCamera->Strafe(-5.0f * (dx));
+				mMainCamera->Climb(5.0f * (dy));
+				mCameraDirty = true;
+			}
+			else if (input.IsMouseDown(Button::Right))
+			{
+				float dx = DirectX::XMConvertToRadians(0.25f * static_cast<float>(input.MouseDeltaX()));
+				float dy = DirectX::XMConvertToRadians(0.25f * static_cast<float>(input.MouseDeltaY()));
+				mMainCamera->Pitch(dy);
+				mMainCamera->RotateY(dx);
+				mCameraDirty = true;
+			}
+		}
+
+		// The wheel walks the camera, 2 units per notch.
+		if (input.WheelDelta() != 0.0f)
+		{
+			mMainCamera->Walk(2.0f * input.WheelDelta());
+			mCameraDirty = true;
+		}
 	}
-	mLastMousePos.x = x;
-	mLastMousePos.y = y;
-	SetCapture(mhMainWnd);
-}
 
-void MCEngine::OnMouseUp(WPARAM btnState, int x, int y)
-{
-	ReleaseCapture();
-}
+	// ESC closes the window like its close button, but not while an ImGui text field is being
+	// edited: ESC then cancels the edit. WantTextInput is true only for an active text field.
+	// (WantCaptureKeyboard is not usable here: keyboard navigation is enabled, so it is true
+	// whenever any ImGui window has navigation focus, which in the docked editor is nearly always.)
+	if (input.IsKeyTriggered(MC::Key::Escape) && !ImGui::GetIO().WantTextInput)
+		mPlatform.RequestClose();
 
-void MCEngine::OnMouseMove(WPARAM btnState, int x, int y)
-{
-	if (!mSceneImageHovered)
-	{
-		mLastMousePos.x = x;
-		mLastMousePos.y = y;
+#if defined(_DEBUG)
+	if (IsHarnessDriving())	// key state is global; a sweep must not see keys typed into other windows
 		return;
-	}
-
-	if ((btnState & MK_LBUTTON) != 0)
-	{
-		// Make each pixel correspond to a quarter of a degree.
-
-		// Update angles based on input to orbit camera around box.
-		// mTheta += dx;
-		// mPhi += dy;
-
-		// Restrict the angle mPhi.
-		// mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
-	}
-	else if ((btnState & MK_MBUTTON) != 0)
-	{
-		// Make each pixel correspond to 0.005 unit in the scene.
-		float dx = 0.005f * static_cast<float>(x - mLastMousePos.x);
-		float dy = 0.005f * static_cast<float>(y - mLastMousePos.y);
-		mMainCamera->Strafe(-5.0f * (dx));
-		mMainCamera->Climb(5.0f * (dy));
-		mCameraDirty = true;
-	}
-	else if ((btnState & MK_RBUTTON) != 0)
-	{
-		float dx = DirectX::XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
-		float dy = DirectX::XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
-		mMainCamera->Pitch(dy);
-		mMainCamera->RotateY(dx);
-		mCameraDirty = true;
-	}
-
-	mLastMousePos.x = x;
-	mLastMousePos.y = y;
-}
-void MCEngine::OnMouseScroll(WPARAM btnState, float delta)
-{
-	if ((btnState & MK_RBUTTON) != 0) {
-
-	}
-	mMainCamera->Walk(2.0f * delta);
-	mCameraDirty = true;
-
-	// mMainCamera->Zoom(-delta*0.5f);
-}
-void MCEngine::OnKeyboardInput(const GameTimer& gt)
-{
-	if (GetAsyncKeyState('1') & 0x8000)
+#endif
+	if (input.IsKeyDown(MC::Key::Num1))
 		mIsWireframe = true;
 	else
 		mIsWireframe = false;
-	if (GetAsyncKeyState(VK_SHIFT) & 0x8000)
+	if (input.IsKeyDown(MC::Key::Shift))
 		mMainCamera->doubleSpeed = true;
 	else
 		mMainCamera->doubleSpeed = false;
-	const float dt = gt.DeltaTime();
-	if (GetAsyncKeyState('W') & 0x8001 && mSceneImageSelected) {
+	// Each key is polled before the focus test, so its "pressed since the last poll" bit is
+	// read and cleared every frame, focused or not.
+	if (input.IsKeyDown(MC::Key::W, true) && input.KeyboardEnabled()) {
 		mMainCamera->Walk(10.0f * dt);
 		mCameraDirty = true;
 	}
-	if (GetAsyncKeyState('S') & 0x8001 && mSceneImageSelected) {
+	if (input.IsKeyDown(MC::Key::S, true) && input.KeyboardEnabled()) {
 		mMainCamera->Walk(-10.0f * dt);
 		mCameraDirty = true;
 	}
-	if (GetAsyncKeyState('A') & 0x8001 && mSceneImageSelected) {
+	if (input.IsKeyDown(MC::Key::A, true) && input.KeyboardEnabled()) {
 		mMainCamera->Strafe(-10.0f * dt);
 		mCameraDirty = true;
 	}
-	if (GetAsyncKeyState('D') & 0x8001 && mSceneImageSelected) {
+	if (input.IsKeyDown(MC::Key::D, true) && input.KeyboardEnabled()) {
 		mMainCamera->Strafe(10.0f * dt);
 		mCameraDirty = true;
 	}
 }
-

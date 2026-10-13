@@ -6,6 +6,8 @@
 #define GAMETIMER_H
 
 #include <chrono>
+#include <cstdint>
+#include <string>
 #include <thread>
 
 class GameTimer
@@ -23,17 +25,35 @@ public:
 	float GetmSecondsPerCount();
 	void LimitFPS(double targetFPS);
 
+	// FPS cap, applied by PlatformSystem::LimitFrameRate. PlatformSystem sets maxFPS and
+	// targetFPS to the refresh rate of the window's monitor; the UI edits capFPS and targetFPS.
+	bool capFPS = false;
+	double targetFPS = 60.0;
+	int maxFPS = 60;
+
+	// Frame statistics for the window title, averaged over one second. PlatformSystem::Tick
+	// calls CalculateFrameStats once per frame while the app is not paused.
+	void CalculateFrameStats();
+	const std::wstring& FpsText() const { return mFpsStr; }
+	const std::wstring& MspfText() const { return mMspfStr; }
+
 private:
 	double mSecondsPerCount;
 	double mDeltaTime;
 
-	__int64 mBaseTime;
-	__int64 mPausedTime;
-	__int64 mStopTime;
-	__int64 mPrevTime;
-	__int64 mCurrTime;
+	// Readings of PIL::PerformanceTimer::Ticks().
+	std::int64_t mBaseTime;
+	std::int64_t mPausedTime;
+	std::int64_t mStopTime;
+	std::int64_t mPrevTime;
+	std::int64_t mCurrTime;
 
 	bool mStopped;
+
+	int mFrameCnt = 0;			// frames since mTimeElapsed
+	float mTimeElapsed = 0.0f;	// TotalTime() at which the current one-second average started
+	std::wstring mFpsStr = L"mFpsStr";
+	std::wstring mMspfStr = L"mMspfStr";
 };
 
 #endif // GAMETIMER_H

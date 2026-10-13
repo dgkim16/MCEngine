@@ -1,3 +1,5 @@
+// This is Sweep test script
+
 // Debug-only verification harness (bridge B1): capture sweep, headless test
 // runner and D3D12 message log. Driven by the command line:
 //
@@ -49,6 +51,8 @@
 //
 // Without a flag the harness only serves the Tests window's "Capture viewport" button.
 #include "Legacy/MCEngine.h"
+#include "Core/LoggingSystem.h"
+#include "PIL/TextEncoding.h"
 
 #if defined(_DEBUG)
 #include "Legacy/MCScene.h"
@@ -251,7 +255,7 @@ void MCEngine::InitDebugHarness() {
 	if (h.runTests)
 		h.sweep = false;	// the tests switch scenes and re-enter Ch7; a sweep after them would not repeat
 	if (h.sweep && tier != L"quick" && tier != L"full") {
-		OutputDebugStringW((L"[harness] unknown --tier '" + tier + L"'\n").c_str());
+		MC::LoggingSystem::Error("[harness] unknown --tier '{}'", MC::PIL::ToUtf8(tier));
 		h.sweep = false;
 		PostQuitMessage(2);
 	}
@@ -261,7 +265,7 @@ void MCEngine::InitDebugHarness() {
 		if (!viewportModes.empty()) {
 			h.entries = BuildViewportTable(viewportModes);
 			if (h.entries.empty()) {
-				OutputDebugStringW((L"[harness] unknown mode in --viewport-modes '" + viewportModes + L"'\n").c_str());
+				MC::LoggingSystem::Error("[harness] unknown mode in --viewport-modes '{}'", MC::PIL::ToUtf8(viewportModes));
 				PostQuitMessage(2);
 			}
 		}
@@ -283,7 +287,7 @@ void MCEngine::InitDebugHarness() {
 		_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
 		_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
 		_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
-		mAppPaused = false;
+		mPlatform.SetPauseOnFocusLoss(false);	// also ends a pause that focus loss caused before this
 	}
 
 	// A poisoned sweep needs the messages too, with or without a log: RejectPoisonedFrame.
@@ -338,8 +342,8 @@ void MCEngine::TickDebugHarness() {
 	// A copied capture is written once the fence of the frame that copied it completes.
 	if (h.readback && mFence->GetCompletedValue() >= h.captureFence) {
 		const bool written = CaptureViewportToBmp();
-		OutputDebugStringW((std::wstring(written ? L"[harness] wrote " : L"[harness] FAILED to write ")
-			+ h.capturePath.wstring() + L"\n").c_str());
+		if (written) MC::LoggingSystem::Info("[harness] wrote {}", MC::PIL::ToUtf8(h.capturePath.wstring()));
+		else MC::LoggingSystem::Error("[harness] FAILED to write {}", MC::PIL::ToUtf8(h.capturePath.wstring()));
 		if (!written) ++h.failures;
 		h.readback.Reset();
 	}
@@ -351,7 +355,7 @@ void MCEngine::TickDebugHarness() {
 		for (const auto& p : mPasses)
 			known = known || target == p->TypeName();
 		if (!known) {	// a misspelled pass would never be poisoned, and its gate would pass
-			OutputDebugStringA(("[harness] unknown pass in --poison '" + target + "'\n").c_str());
+			MC::LoggingSystem::Error("[harness] unknown pass in --poison '{}'", target);
 			h.sweep = false;
 			PostQuitMessage(2);
 			return;
@@ -445,7 +449,7 @@ void MCEngine::TickDebugHarness() {
 			return;
 		}
 		// Defaults first, then the configuration, through the fields the UI writes.
-		if (mScene4xMsaaState) { mScene4xMsaaState = false; mSceneSizeDirty = true; }
+		mRequestedMsaa = false;	// applied by the rebuild later in this ApplyPendingRequests
 		mIsWireframe = false;
 		blurValues = CSB_blurValues{};
 		blurDirty = true;
@@ -464,7 +468,7 @@ void MCEngine::TickDebugHarness() {
 		using C = SweepConfig;
 		switch (e.config) {
 		case C::Default:   break;
-		case C::Msaa:      mScene4xMsaaState = true; mSceneSizeDirty = true; break;
+		case C::Msaa:      mRequestedMsaa = true; break;
 		case C::Wireframe: mIsWireframe = true; break;
 		case C::Blur:      blurValues.enabled = true; blurValues.sigma = 2.0f; blurValues.blurIter = 5; break;	// smoke matrix M4
 		case C::SobelDefault:  mSobelType = SobelType::Default; mIsSobel = true; break;
@@ -605,7 +609,7 @@ bool MCEngine::RejectPoisonedFrame() {
 	const int failed = h.failures + static_cast<int>(h.entries.size() - h.entry);
 	const std::string why = "[harness] --poison: a D3D12 error while recording; the frame was not submitted, "
 		+ std::to_string(failed) + " entries failed";
-	OutputDebugStringA((why + "\n").c_str());
+	MC::LoggingSystem::Error("{}", why);
 	h.log.Line(why);
 	h.poisoning = false;
 	h.sweep = false;

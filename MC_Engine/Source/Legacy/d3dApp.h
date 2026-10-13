@@ -1,21 +1,18 @@
 #pragma once
 
 #include "Renderer/D3D12/d3dUtil.h"
-#include "Platform/GameTimer.h"
 #include <dxgi1_4.h>
 
 class D3DApp
 {
 protected:
-	D3DApp(HINSTANCE hInstance); // constructor
+	D3DApp() = default; // the window comes from PlatformSystem, through Initialize
 	D3DApp(const D3DApp& rhs) = delete; // remove copy constructor
 	D3DApp& operator=(const D3DApp& rhs) = delete; // remove copy assignment
 	// copy assignment: Used when overwriting an already existing object.
 	virtual ~D3DApp(); // virtual destructor - virtual allows inherited classes to derive delete as well
 
 public:
-	static D3DApp* GetApp();
-	HINSTANCE AppInst()const;
 	HWND MainWnd()const;
 	float AspectRatio()const;
 
@@ -23,26 +20,16 @@ public:
 	void Set4xMsaaState(bool value);
 	bool GetGbvState() const { return mGBVenabled; }
 
-	int Run();
-	virtual bool Initialize();
-	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) = 0;
+	bool Initialize(HWND window, int clientWidth, int clientHeight);
 	
 
 // virtual functions
 protected:
-	virtual void CreateRtvAndDsvDescriptorHeaps();
 	virtual void OnResize();
-	virtual void Update(GameTimer& gt) = 0;
-	virtual void Draw(const GameTimer& gt) = 0;
-
-	// Convenience overrides for handling mouse input.
-	virtual void OnMouseDown(WPARAM btnState, int x, int y) {}
-	virtual void OnMouseUp(WPARAM btnState, int x, int y) {}
-	virtual void OnMouseMove(WPARAM btnState, int x, int y) {}
+	virtual void RunFrame(float dt) = 0;	// one frame: update and draw
 
 // non virtual functions
 protected:
-	bool InitMainWindow();
 	bool InitDirect3D();
 	void CreateCommandObjects();
 	void CreateSwapChain();
@@ -52,31 +39,17 @@ protected:
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView()const;
 
-	void CalculateFrameStats();
-
 	void LogAdapters();
 	void LogAdapterOutputs(IDXGIAdapter* adapter);
 	void LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format);
-	void UpdateCurrentMonitorRefreshRate(HWND hwnd);
 
 protected:
-	static D3DApp* mApp; // singleton design
-
-	HINSTANCE mhAppInst = nullptr; // application instance handle
 	HWND      mhMainWnd = nullptr; // main window handle
-	bool      mAppPaused = false;  // is the application paused?
-	bool      mMinimized = false;  // is the application minimized?
-	bool      mMaximized = false;  // is the application maximized?
-	bool      mResizing = false;   // are the resize bars being dragged?
 	bool      mFullscreenState = false;// fullscreen enabled
 
 	// Set true to use 4X MSAA (?.1.8).  The default is false.
 	bool	  m4xMsaaState = false;
 	UINT	  m4xMsaaQuality = 0;
-
-	
-
-	GameTimer mTimer;
 
 	// Declare variables
 	Microsoft::WRL::ComPtr<IDXGIFactory4> mdxgiFactory; // dxgi1_4.h
@@ -106,9 +79,6 @@ protected:
 	UINT mCbvSrvUavDescriptorSize = 0;		// value assigned in D3DApp::create_Fence_Query_Descriptor_size()
 
 	// Derived class should set these in derived constructor to customize starting values.
-	std::wstring mMainWndCaption = L"MC Engine";
-	std::wstring mFpsStr = L"mFpsStr";
-	std::wstring mMspfStr = L"mMspfStr";
 	D3D_DRIVER_TYPE md3dDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT; // Depth 24 bits unsigned normalized, stencil 8 bits uint
@@ -118,9 +88,7 @@ protected:
 	
 	int mClientWidth = 1280;
 	int mClientHeight = 800;
-	bool capFPS = false;
-	double targetFPS = 60.0; // modified by GameTimer
-	int maxFPS = 60;
+
 	bool mTearingSupported = false;	// for tearing (disables vsync by dxgi)
 	float nearPlane = 0.01f;
 	float farPlane = 1000.0f;

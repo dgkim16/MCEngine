@@ -38,6 +38,7 @@
 #include "Renderer/D3D12/ConstExpressionValues.h" // gNumFrameResources
 #include "Renderer/D3D12/FrameGraph/FrameGraph.h"
 #include "Renderer/D3D12/FrameGraph/RenderPass.h"
+#include "Platform/PlatformSystem.h"
 #include <set>
 #include <vector>
 #include <string>
@@ -58,14 +59,13 @@ class MCEngine : public D3DApp
 {
 public:
 	// ======================= Lifecycle =======================
-	MCEngine(HINSTANCE hInstance);
+	MCEngine(void* hInstance, int iconId);
 	MCEngine(const MCEngine& rhs) = delete;
 	MCEngine& operator=(const MCEngine& rhs) = delete;
 	~MCEngine();
 
-	virtual bool Initialize()override;
-	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)override;
-
+	bool Initialize();
+	int Run();
 	// ======================= Subsystem accessors =======================
 	const JsonMigrator& Migrator() const { return mMigrator; }
 	MCMaterialManager& Materials() { return mMaterialManager; }
@@ -152,7 +152,6 @@ public:
 	DirectX::XMFLOAT4& GetFogColor() { return mFogColor; }
 
 	// ======================= Misc engine ops =======================
-	void ReloadShaders();
 	// --- Light management (will be moved to scene-specific on a later date) ---
 	void RegisterLights();
 
@@ -166,31 +165,44 @@ public:
 	// "edits flush to disk on combo-switch" UX you currently rely on.
 	bool mAutosaveOnSwitch = true;
 
-protected:
-	virtual void CreateRtvAndDsvDescriptorHeaps()override;	// overridden to set dsvHeapDesc.NumDescriptors = 2 instead of 1.
-
 private:
 	// ======================= Frame loop =======================
+	// @brief One frame: the seven phases below, in order. Called by D3DApp::Run.
+	void RunFrame(float dt)override;
+	// @brief takes resize request from platform, updates mClientWidth and Height, then calls OnResize();
+	void ApplyWindowResize();
+	// @brief Safe point: every GPU-affecting request runs here, with the command list closed
+	// @brief [scene switch/reload, shader reload, viewport+MSAA rebuild, debug harness]
+	void ApplyPendingRequests();
+	// @brief Camera navigation and picking
+	void UpdateInput(float dt);
+	void UpdateInput(const MC::Input& input, float dt);
+	// @brief Advance the frame ring, free old descriptors, wait for the slot's fence, read back GPU timers
+	void BeginGpuFrame();
+	// @brief ImGui: edits CPU data, writes *requested* settings, queues requests; never flushes
+	void UpdateEditor();
+	// @brief Ortho blend
+	void UpdateLogic(float dt);
+	// @brief Culling and constant-buffer uploads
+	void PrepareRenderData();
+	// @brief FrameGraph, UI composite, present, fence signal
+	void RenderFrame();
+
+	bool mShaderReloadRequest = false;	// set by the Reload Shaders button; consumed by ApplyPendingRequests
+	void ReloadShaders();
+
 	virtual void OnResize()override;
 	virtual void OnSceneResize();
-	virtual void Update(GameTimer& gt)override;
-	virtual void Draw(const GameTimer& gt)override;
 
-	void UpdateCamera(const GameTimer& gt);
-	void UpdateObjectCBs(const GameTimer& gt);
-	void UpdateInstanceData(const GameTimer& gt);
+	void UpdateCamera();
+	void UpdateObjectCBs();
+	void UpdateInstanceData();
 	void UpdateMainPassCB(const GameTimer& gt);
-	void UpdateMaterialCBs(const GameTimer& gt);
-	void UpdateDepthDebugCB(const GameTimer& gt);
-
-	// ======================= Input =======================
-	virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
-	virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
-	virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
-	void OnMouseScroll(WPARAM btnState, float delta);
-	void OnKeyboardInput(const GameTimer& gt);
+	void UpdateMaterialCBs();
+	void UpdateDepthDebugCB();
 
 	// ======================= Build (init-time) =======================
+	void CreateRtvAndDsvDescriptorHeaps();	// the swap chain's RTVs and the window DSV at their heads, then the engine's
 	void BuildDescriptorHeaps();	// create descriptor heap for cbv
 	void BuildRootSignature();
 	virtual void BuildShadersAndInputLayout();
@@ -262,6 +274,9 @@ private:
 private:
 	// =============================== DATA ===============================
 
+	// --- Core Systems ---
+	MC::PlatformSystem mPlatform;
+
 	// --- Core subsystems ---
 	// Construction-order-sensitive: managers BEFORE mSceneManager (scenes must
 	// destroy before the managers their Clear() path unregisters from).
@@ -318,13 +333,18 @@ private:
 	enum class ViewportResMode { Free, Ratio16x9, Ratio1x1, HD, FullHD, K4 };
 	ViewportResMode mViewportResMode = ViewportResMode::Free;
 	float mViewportZoom = 0.0f; // 0 = FIT, >0 = pixel-accurate factor (1.0 = 100%)
+	// Applied scene view size and MSAA state: what the targets were built with, and the only
+	// fields the passes and CB writers read. ApplyPendingRequests copies the requested
+	// values below into them, with the GPU idle.
 	float mSceneViewWidth = 800.0f;
 	float mSceneViewHeight = 600.0f;
-	bool mSceneSizeDirty = false; // just mSceneDirty
-	bool mSceneImageSelected = false;
+	bool mScene4xMsaaState = false;
+	// Requested by the viewport panel, the MSAA checkbox and the capture harness.
+	float mRequestedSceneViewWidth = 800.0f;
+	float mRequestedSceneViewHeight = 600.0f;
+	bool mRequestedMsaa = false;
 	bool mSceneImageHovered = false;
 	DirectX::XMFLOAT2 mSceneMousePos = { 0.0f, 0.0f };
-	bool mScene4xMsaaState = false;
 	bool mIsWireframe = false;
 
 	// --- Post-process (blur / sobel) ---
@@ -348,7 +368,6 @@ private:
 	std::vector<std::unique_ptr<Camera>> mAllCameras;
 	Camera* mMainCamera = nullptr;
 	bool mCameraDirty = true;
-	POINT mLastMousePos;
 	bool isOrtho = 0;
 	float mOrthoT = 0.0f;
 	int cameraDirtyCount = 0;

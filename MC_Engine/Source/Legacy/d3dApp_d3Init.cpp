@@ -1,4 +1,5 @@
 #include "Legacy/d3dApp.h"
+#include "Core/LoggingSystem.h"
 #include <WindowsX.h>
 
 ID3D12Resource* D3DApp::CurrentBackBuffer()const
@@ -150,28 +151,6 @@ void D3DApp::CreateSwapChain() {
 	// OnResize() does the creation and viewing 
 }
 
-void D3DApp::CreateRtvAndDsvDescriptorHeaps() {
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
-	rtvHeapDesc.NumDescriptors = SwapChainBufferCount;
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	rtvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(
-		&rtvHeapDesc,
-		IID_PPV_ARGS(mRtvHeap.GetAddressOf())
-	));
-
-	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
-	dsvHeapDesc.NumDescriptors = 1;
-	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	dsvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(
-		&dsvHeapDesc,
-		IID_PPV_ARGS(mDsvHeap.GetAddressOf())
-	));
-}
-
 // forces CPU to wait until GPU finished processing all commands in the queue upto specified fence point
 void D3DApp::FlushCommandQueue() {
 	mCurrentFence++;
@@ -271,9 +250,9 @@ void D3DApp::OnResize() {
 		D3D12_RESOURCE_STATE_DEPTH_WRITE
 	);
 	mCommandList->ResourceBarrier(1, &transition);
-	OutputDebugString(L"OnResize - Tyring to close cmdlist...\n");
+	MC::LoggingSystem::Debug("OnResize - Tyring to close cmdlist...");
 	ThrowIfFailed(mCommandList->Close());
-	OutputDebugString(L"OnResize - SUCCESS to close cmdlist...\n");
+	MC::LoggingSystem::Debug("OnResize - SUCCESS to close cmdlist...");
 	ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 	FlushCommandQueue(); // wait (stall process)
@@ -351,7 +330,5 @@ bool D3DApp::InitDirect3D() {
 	std::cout << "Created CMD Objects" << std::endl;
 	CreateSwapChain();
 	std::cout << "Created SwapChain" << std::endl;
-	CreateRtvAndDsvDescriptorHeaps();
-	std::cout << "Created RTV DSV desc heaps" << std::endl;
 return true;
 }

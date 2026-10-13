@@ -1,4 +1,5 @@
 #include "Legacy/MCEngine.h"
+#include "Core/LoggingSystem.h"
 #include "Renderer/D3D12/ShaderLib.h"
 #include "MCLight.h"
 #include <cassert>
@@ -38,7 +39,7 @@ void MCEngine::BuildRootSignature()
 		HRESULT hr = D3D12SerializeRootSignature(&rootSigDescs[i], D3D_ROOT_SIGNATURE_VERSION_1,
 			serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
 		if (errorBlob != nullptr)
-			::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			MC::LoggingSystem::Error("{}", (const char*)errorBlob->GetBufferPointer());
 		ThrowIfFailed(hr);
 
 		// create ID3D12RootSignature-type root signature via ID3D12Device, using serialized ID3DBlob-type root signature
@@ -63,7 +64,7 @@ void MCEngine::BuildRootSignature()
 	HRESULT hr = D3D12SerializeRootSignature(&computeRootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
 		serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
 	if (errorBlob != nullptr)
-		::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+		MC::LoggingSystem::Error("{}", (const char*)errorBlob->GetBufferPointer());
 	ThrowIfFailed(hr);
 	ThrowIfFailed(md3dDevice->CreateRootSignature(0,
 		serializedRootSig->GetBufferPointer(),
@@ -82,7 +83,7 @@ void MCEngine::BuildRootSignature()
 		ComPtr<ID3DBlob> serializedDebugRS, debugError;
 		HRESULT hrD = D3D12SerializeRootSignature(&debugRSDesc, D3D_ROOT_SIGNATURE_VERSION_1,
 			serializedDebugRS.GetAddressOf(), debugError.GetAddressOf());
-		if (debugError) ::OutputDebugStringA((char*)debugError->GetBufferPointer());
+		if (debugError) MC::LoggingSystem::Error("{}", (const char*)debugError->GetBufferPointer());
 		ThrowIfFailed(hrD);
 		ThrowIfFailed(md3dDevice->CreateRootSignature(0,
 			serializedDebugRS->GetBufferPointer(), serializedDebugRS->GetBufferSize(),
@@ -104,7 +105,7 @@ void MCEngine::BuildRootSignature()
 		HRESULT hrGC = D3D12SerializeRootSignature(&grassCullRSDesc, D3D_ROOT_SIGNATURE_VERSION_1,
 			serializedGrassCullRS.GetAddressOf(), grassCullError.GetAddressOf());
 		if (grassCullError != nullptr)
-			::OutputDebugStringA((char*)grassCullError->GetBufferPointer());
+			MC::LoggingSystem::Error("{}", (const char*)grassCullError->GetBufferPointer());
 		ThrowIfFailed(hrGC);
 		ThrowIfFailed(md3dDevice->CreateRootSignature(0,
 			serializedGrassCullRS->GetBufferPointer(),
@@ -115,9 +116,9 @@ void MCEngine::BuildRootSignature()
 
 void MCEngine::BuildShadersAndInputLayout()
 {
-	OutputDebugString(L"Building shaders...");
+	MC::LoggingSystem::Debug("Building shaders...");
 	ShaderLibDx::GetLib().Init();
-	OutputDebugString(L"Building input layout...");
+	MC::LoggingSystem::Debug("Building input layout...");
 	mInputLayout["default"] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },	 // 32bit * 3 = 12 bytes
@@ -129,12 +130,12 @@ void MCEngine::BuildShadersAndInputLayout()
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "SIZE", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
-	OutputDebugString(L"attempting to create inputlayout for tess..");
+	MC::LoggingSystem::Debug("attempting to create inputlayout for tess..");
 
 	mInputLayout["tessellation"] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
-	OutputDebugString(L"success to create inputlayout for tess..");
+	MC::LoggingSystem::Debug("success to create inputlayout for tess..");
 
 	mInputLayout["default_Instance"] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 0 },	 // 32bit * 3 = 12 bytes
@@ -156,7 +157,7 @@ void MCEngine::BuildPSOs()
 #endif
 	auto sv = mShaders["standardVS"];
 	if (sv == nullptr) {
-		OutputDebugString(L"BuildPSO - nullptr\n");
+		MC::LoggingSystem::Warning("BuildPSO - nullptr");
 	}
 	// PSO for opaque objects.
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDesc;

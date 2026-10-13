@@ -1,4 +1,5 @@
 #include "Legacy/MC_AssetTests.h"
+#include "Core/LoggingSystem.h"
 #include "Legacy/MCEngine.h"
 #include "Legacy/MCMaterialManager.h"
 #include "Legacy/MCMaterial.h"
@@ -10,7 +11,6 @@
 #include "Legacy/RenderItem.h"
 #include "Legacy/SceneSerialization.h"
 #include <nlohmann/json.hpp>
-#include <Windows.h>          // OutputDebugStringA
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -25,13 +25,13 @@ std::function<void(const char*, bool, const std::string&)> gResultSink;   // MCA
 #endif
 
 void Pass(const char* tag) {
-	OutputDebugStringA(("[" + std::string(tag) + "] PASS\n").c_str());
+	MC::LoggingSystem::Info("[{}] PASS", tag);
 #if defined(_DEBUG)
 	if (gResultSink) gResultSink(tag, true, std::string());
 #endif
 }
 void Fail(const char* tag, const std::string& reason) {
-	OutputDebugStringA(("[" + std::string(tag) + "] FAIL — " + reason + "\n").c_str());
+	MC::LoggingSystem::Error("[{}] FAIL — {}", tag, reason);
 #if defined(_DEBUG)
 	if (gResultSink) gResultSink(tag, false, reason);
 #endif
@@ -96,7 +96,7 @@ void RunCrossKindCollisionFree() {
 void RunHashMismatchReject(MCEngine& engine) {
 	const char* tag = "1c hashMismatch";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/bad_hash.mcmat";
+	fs::path tmp = "Assets/test/bad_hash.mcmat";
 
 	// Hardcoded JSON: version=1 (passes Migrator), kind=MCMaterial, but
 	// `handle` is bogus relative to displayName "test_bad_hash". Identity
@@ -143,7 +143,7 @@ void RunMigratorV0Reject(MCEngine& engine) {
 	bool threw = false;
 	std::string msg;
 	try {
-		engine.Migrator().LoadAndMigrate("assets/test/scene_v0.json");
+		engine.Migrator().LoadAndMigrate("Assets/test/scene_v0.json");
 	} catch (const std::exception& e) {
 		threw = true;
 		msg = e.what();
@@ -164,7 +164,7 @@ void RunMigratorV999Reject(MCEngine& engine) {
 	bool threw = false;
 	std::string msg;
 	try {
-		engine.Migrator().LoadAndMigrate("assets/test/scene_v999.json");
+		engine.Migrator().LoadAndMigrate("Assets/test/scene_v999.json");
 	} catch (const std::exception& e) {
 		threw = true;
 		msg = e.what();
@@ -197,7 +197,7 @@ void RunCrossAssetSameName(MCEngine& engine) {
 	auto* mat = engine.Materials().Get(m);
 	if (!mat) {
 		Fail(tag, "Materials().Get(hash('woodCrate')) returned nullptr — "
-			"is woodCrate.mcmat in assets/materials/?");
+			"is woodCrate.mcmat in Assets/materials/?");
 		return;
 	}
 	if (mat->Name != "woodCrate") {
@@ -208,14 +208,14 @@ void RunCrossAssetSameName(MCEngine& engine) {
 }
 
 void RunAll(MCEngine& engine) {
-	OutputDebugStringA("=== Asset verification suite (D9 Step 1) ===\n");
+	MC::LoggingSystem::Info("=== Asset verification suite (D9 Step 1) ===");
 	RunDeterminism(engine);
 	RunCrossKindCollisionFree();
 	RunHashMismatchReject(engine);
 	RunMigratorV0Reject(engine);
 	RunMigratorV999Reject(engine);
 	RunCrossAssetSameName(engine);
-	OutputDebugStringA("=== End ===\n");
+	MC::LoggingSystem::Info("=== End ===");
 }
 
 // =====================================================================
@@ -241,7 +241,7 @@ void WriteRedirects(const std::filesystem::path& p, const nlohmann::json& redire
 void RunCycleDetection(MCEngine& engine) {
 	const char* tag = "2a cycle";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/redirects_cycle.json";
+	fs::path tmp = "Assets/test/redirects_cycle.json";
 	WriteRedirects(tmp, nlohmann::json::array({
 		{{"kind","material"},{"from","100"},{"to","200"},{"reason","test"},{"date","2026-05-09"}},
 		{{"kind","material"},{"from","200"},{"to","100"},{"reason","test"},{"date","2026-05-09"}},
@@ -268,7 +268,7 @@ void RunCycleDetection(MCEngine& engine) {
 void RunDanglingTarget(MCEngine& engine) {
 	const char* tag = "2b dangling";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/redirects_dangling.json";
+	fs::path tmp = "Assets/test/redirects_dangling.json";
 	WriteRedirects(tmp, nlohmann::json::array({
 		{{"kind","material"},{"from","100"},{"to","99999999999"},{"reason","test"},{"date","2026-05-09"}},
 	}));
@@ -297,7 +297,7 @@ void RunDanglingTarget(MCEngine& engine) {
 void RunMultiRedirect(MCEngine& engine) {
 	const char* tag = "2c multi";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/redirects_multi.json";
+	fs::path tmp = "Assets/test/redirects_multi.json";
 	WriteRedirects(tmp, nlohmann::json::array({
 		{{"kind","material"},{"from","100"},{"to","200"},{"reason","test"},{"date","2026-05-09"}},
 		{{"kind","material"},{"from","100"},{"to","300"},{"reason","test"},{"date","2026-05-09"}},
@@ -324,7 +324,7 @@ void RunMultiRedirect(MCEngine& engine) {
 void RunDepth3Chain(MCEngine& engine) {
 	const char* tag = "2d depth3";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/redirects_chain3.json";
+	fs::path tmp = "Assets/test/redirects_chain3.json";
 	WriteRedirects(tmp, nlohmann::json::array({
 		{{"kind","material"},{"from","100"},{"to","200"},{"reason","test"},{"date","2026-05-09"}},
 		{{"kind","material"},{"from","200"},{"to","300"},{"reason","test"},{"date","2026-05-09"}},
@@ -357,7 +357,7 @@ void RunDepth3Chain(MCEngine& engine) {
 void RunRecordCycleReject(MCEngine& engine) {
 	const char* tag = "2f recordCycle";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/redirects_record_cycle.json";
+	fs::path tmp = "Assets/test/redirects_record_cycle.json";
 	WriteRedirects(tmp, nlohmann::json::array({
 		{{"kind","material"},{"from","100"},{"to","200"},{"reason","test"},{"date","2026-09-29"}},
 	}));
@@ -401,8 +401,8 @@ void RunRecordCycleReject(MCEngine& engine) {
 void RunRecordWritePath(MCEngine& engine) {
 	const char* tag = "2g recordPath";
 	namespace fs = std::filesystem;
-	const fs::path live = "assets/asset_redirects.json";
-	fs::path tmp = "assets/test/redirects_record_path.json";
+	const fs::path live = "Assets/asset_redirects.json";
+	fs::path tmp = "Assets/test/redirects_record_path.json";
 	fs::path tmpTmp = tmp; tmpTmp += ".tmp";
 	auto readAll = [](const fs::path& p) {
 		std::ifstream in(p, std::ios::binary);
@@ -445,14 +445,14 @@ void RunRecordWritePath(MCEngine& engine) {
 }
 
 void RunAllRedirects(MCEngine& engine) {
-	OutputDebugStringA("=== Redirect verification suite (D9 Step 2) ===\n");
+	MC::LoggingSystem::Info("=== Redirect verification suite (D9 Step 2) ===");
 	RunCycleDetection(engine);
 	RunDanglingTarget(engine);
 	RunMultiRedirect(engine);
 	RunDepth3Chain(engine);
 	RunRecordCycleReject(engine);
 	RunRecordWritePath(engine);
-	OutputDebugStringA("=== End ===\n");
+	MC::LoggingSystem::Info("=== End ===");
 }
 
 // =====================================================================
@@ -550,7 +550,7 @@ void RunFieldDeletion() {
 void RunBadHandleReference(MCEngine& engine) {
 	const char* tag = "4b badHandle";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/scene_bad_handle.json";
+	fs::path tmp = "Assets/test/scene_bad_handle.json";
 
 	auto scn = BuildSimpleScene("BadHandleTest", "bogus_box");
 	scn["materialHandles"] = nlohmann::json::array({"99999999999"});  // bogus
@@ -586,7 +586,7 @@ void RunBadHandleReference(MCEngine& engine) {
 void RunResaveEquivalence(MCEngine& engine) {
 	const char* tag = "4c resaveEquiv";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/scene_ch7_resaved.json";
+	fs::path tmp = "Assets/test/scene_ch7_resaved.json";
 
 	// Recursive diff: returns "" if equal-within-tolerance, else dotted/indexed
 	// path to first differing leaf. Numbers compare with abs tolerance 1e-6 to
@@ -637,7 +637,7 @@ void RunResaveEquivalence(MCEngine& engine) {
 	try {
 		engine.Scenes().Save("Ch7", tmp.string());
 
-		std::ifstream srcS("assets/scenes/scene_ch7.json");
+		std::ifstream srcS("Assets/scenes/scene_ch7.json");
 		std::ifstream rsvS(tmp);
 		auto src = nlohmann::json::parse(srcS);
 		auto rsv = nlohmann::json::parse(rsvS);
@@ -655,7 +655,7 @@ void RunResaveEquivalence(MCEngine& engine) {
 void RunVersionAbsent(MCEngine& engine) {
 	const char* tag = "4d versionAbsent";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/scene_no_version.json";
+	fs::path tmp = "Assets/test/scene_no_version.json";
 
 	auto scn = BuildSimpleScene("NoVersion", "x");
 	scn.erase("version");
@@ -681,7 +681,7 @@ void RunVersionAbsent(MCEngine& engine) {
 void RunBadAssetVersion(MCEngine& engine) {
 	const char* tag = "4e badAssetVersion";
 	namespace fs = std::filesystem;
-	fs::path tmp = "assets/test/bad_version.mcmat";
+	fs::path tmp = "Assets/test/bad_version.mcmat";
 
 	const char* bad = R"({
   "version": 999,
@@ -726,8 +726,8 @@ void RunBadAssetVersion(MCEngine& engine) {
 void RunSameNameAcrossScenes(MCEngine& engine) {
 	const char* tag = "4f sameNameXScenes";
 	namespace fs = std::filesystem;
-	fs::path tmpA = "assets/test/scene_dup_a.json";
-	fs::path tmpB = "assets/test/scene_dup_b.json";
+	fs::path tmpA = "Assets/test/scene_dup_a.json";
+	fs::path tmpB = "Assets/test/scene_dup_b.json";
 
 	{ std::ofstream(tmpA) << BuildSimpleScene("TestA", "box").dump(2); }
 	{ std::ofstream(tmpB) << BuildSimpleScene("TestB", "box").dump(2); }
@@ -755,14 +755,14 @@ void RunSameNameAcrossScenes(MCEngine& engine) {
 }
 
 void RunAllResilience(MCEngine& engine) {
-	OutputDebugStringA("=== Resilience suite (D9 Step 4) ===\n");
+	MC::LoggingSystem::Info("=== Resilience suite (D9 Step 4) ===");
 	RunFieldDeletion();
 	RunBadHandleReference(engine);
 	RunResaveEquivalence(engine);
 	RunVersionAbsent(engine);
 	RunBadAssetVersion(engine);
 	RunSameNameAcrossScenes(engine);
-	OutputDebugStringA("=== End ===\n");
+	MC::LoggingSystem::Info("=== End ===");
 }
 
 // =====================================================================
@@ -783,7 +783,7 @@ namespace {
 void RestoreCh7(MCEngine& engine) {
 	try { engine.SwitchSceneNow("Ch7"); }
 	catch (const std::exception& e) {
-		OutputDebugStringA(("[outlier] WARN restoring Ch7: " + std::string(e.what()) + "\n").c_str());
+		MC::LoggingSystem::Warning("[outlier] WARN restoring Ch7: {}", e.what());
 	}
 }
 
@@ -886,7 +886,7 @@ void RunUnknownModule(MCEngine& engine) {
 	bool ok = false;
 	std::string msg;
 	try {
-		engine.Scenes().SetScenePath("UnknownModule", "assets/test/scene_unknown_module.json");
+		engine.Scenes().SetScenePath("UnknownModule", "Assets/test/scene_unknown_module.json");
 		std::string err;
 		try { engine.SwitchSceneNow("UnknownModule"); }
 		catch (const std::exception& e) { err = e.what(); }
@@ -908,13 +908,13 @@ void RunUnknownModule(MCEngine& engine) {
 }
 
 void RunAllOutlier(MCEngine& engine) {
-	OutputDebugStringA("=== Outlier suite (D9 Step 6) ===\n");
+	MC::LoggingSystem::Info("=== Outlier suite (D9 Step 6) ===");
 	RunSoloVoid(engine);
 	RunSoloBox(engine);
 	RunSwitchNonexistent(engine);
 	RunSwitchSelf(engine);
 	RunUnknownModule(engine);
-	OutputDebugStringA("=== End ===\n");
+	MC::LoggingSystem::Info("=== End ===");
 }
 
 // =====================================================================
@@ -1000,7 +1000,7 @@ void RunBigSceneSwitch(MCEngine& engine) {
 	const char* tag = "T13c bigSceneSwitch";
 	std::string msg;
 	try {
-		engine.Scenes().SetScenePath("Big", "assets/test/scene_big.json");
+		engine.Scenes().SetScenePath("Big", "Assets/test/scene_big.json");
 		for (int step = 0; step < 40 && msg.empty(); ++step) {
 			const std::string name = step % 2 == 0 ? "Big" : "SoloBox";
 			const std::size_t expected = step % 2 == 0 ? 200 : 1;

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Layering and API-ownership audit of the engine sources (rules A1-A6 and A8-A13).
+    Layering and API-ownership audit of the engine sources (rules A1-A6 and A8-A14).
 
 .DESCRIPTION
     audit.ps1 [-Report]
@@ -28,14 +28,17 @@ $ErrorActionPreference = 'Stop'
 
 # Enforced rules: '<rule> <glob>'. A rule with no line here is report-only.
 $Enforced = @(
+    'A2 PIL\**'
     'A2 Core\**'
     'A2 Platform\**'
     'A2 Renderer\*.h'
     'A2 Renderer\D3D12\*'
+    'A3 PIL\**'
     'A3 Core\**'
     'A3 Platform\**'
     'A3 Renderer\*.h'
     'A3 Renderer\D3D12\*'
+    'A5 PIL\**'
     'A5 Core\**'
     'A5 Platform\**'
     'A5 Renderer\*.h'
@@ -43,6 +46,7 @@ $Enforced = @(
     'A9 Legacy'
     'A10 **'
     'A11 **'
+    'A14 **'
 )
 
 $engineDir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path.TrimEnd('\')
@@ -90,7 +94,7 @@ function Test-Home([string]$rel, [string[]]$homes) {
 }
 
 # Layer of a path relative to Source\ (also used for root-relative include strings).
-$LayerNames = @('Core', 'Platform', 'Renderer', 'Assets', 'Scene', 'Engine', 'Editor', 'App', 'Legacy')
+$LayerNames = @('PIL', 'Core', 'Platform', 'Renderer', 'Assets', 'Scene', 'Engine', 'Editor', 'App', 'Legacy')
 function Get-Layer([string]$rel) {
     $p = $rel.Replace('/', '\')
     if ($p -like 'Renderer\D3D12\*') { return 'Backend' }
@@ -102,15 +106,16 @@ function Test-InBackend([string]$rel) { $rel -like 'Renderer\D3D12\*' }
 
 # May-include table: including layer -> layers (and single headers) it may include.
 $MayInclude = @{
-    Core     = @('Core')
-    Platform = @('Core', 'Platform')
-    Renderer = @('Core', 'Renderer')
-    Backend  = @('Core', 'Renderer', 'Backend')
-    Assets   = @('Core', 'Assets', 'Renderer\RenderTypes.h')
-    Scene    = @('Core', 'Assets', 'Scene', 'Renderer\RenderTypes.h', 'Platform\Input.h')
-    Engine   = @('Core', 'Platform', 'Renderer', 'Engine')
-    Editor   = @('Core', 'Platform', 'Renderer', 'Assets', 'Scene', 'Editor')
-    App      = @('Core', 'Platform', 'Renderer', 'Assets', 'Scene', 'Engine', 'Editor', 'App')
+    PIL      = @('PIL')
+    Core     = @('PIL', 'Core')
+    Platform = @('PIL', 'Core', 'Platform')
+    Renderer = @('PIL', 'Core', 'Renderer')
+    Backend  = @('PIL', 'Core', 'Renderer', 'Backend')
+    Assets   = @('PIL', 'Core', 'Assets', 'Renderer\RenderTypes.h')
+    Scene    = @('PIL', 'Core', 'Assets', 'Scene', 'Renderer\RenderTypes.h', 'Platform\Input.h')
+    Engine   = @('PIL', 'Core', 'Platform', 'Renderer', 'Engine')
+    Editor   = @('PIL', 'Core', 'Platform', 'Renderer', 'Assets', 'Scene', 'Editor')
+    App      = @('PIL', 'Core', 'Platform', 'Renderer', 'Assets', 'Scene', 'Engine', 'Editor', 'App')
 }
 
 # ---------------------------------------------------------------- rules
@@ -143,13 +148,15 @@ $Rules = @(
     @{ Id = 'A13'; Kind = 'site'; Title = 'SetDescriptorHeaps( outside DescHeapManager.cpp'
        Pattern = 'SetDescriptorHeaps\s*\('
        Forbidden = { param($rel) -not (Test-Home $rel @('Renderer\D3D12\DescHeapManager.cpp')) } }
+    @{ Id = 'A14'; Kind = 'site'; Title = 'OutputDebugString outside PIL\ (log through LoggingSystem)'
+       Pattern = '\bOutputDebugString[AW]?\s*\('; Forbidden = { param($rel) -not ($rel -like 'PIL\*') } }
 )
 foreach ($r in $Rules) { $r.Regex = New-Object System.Text.RegularExpressions.Regex($r.Pattern) }   # case-sensitive
 
-$A5Title  = 'include direction between layers; <windows.h> in Core headers'
+$A5Title  = 'include direction between layers; <windows.h> in Core/PIL headers'
 $A9Title  = 'Legacy\ file count must not grow'
 $A10Title = 'no two files under Source\ share a basename'
-$RuleOrder = @('A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A8a', 'A8b', 'A9', 'A10', 'A11', 'A12', 'A13')
+$RuleOrder = @('A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A8a', 'A8b', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14')
 $Titles = @{ A5 = $A5Title; A9 = $A9Title; A10 = $A10Title }
 foreach ($r in $Rules) { $Titles[$r.Id] = $r.Title }
 $KindOf = @{ A5 = 'site'; A9 = 'site'; A10 = 'site' }
@@ -216,7 +223,7 @@ foreach ($f in $files) {
             }
             if (-not $ok) { $ln = & $getLine $m.Index; Add-Hit 'A5' $rel $ln[0] ("$from -> $to`: " + $ln[1].Trim()) }
         }
-        if ($from -eq 'Core' -and $rel -match '\.(h|hpp)$') {
+        if (($from -eq 'Core' -or $from -eq 'PIL') -and $rel -match '\.(h|hpp)$') {
             foreach ($m in $windowsRegex.Matches($code)) { $ln = & $getLine $m.Index; Add-Hit 'A5' $rel $ln[0] $ln[1] }
         }
     }

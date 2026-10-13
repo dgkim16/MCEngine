@@ -1,4 +1,5 @@
 #include "Legacy/MCEngine.h"
+#include "Core/LoggingSystem.h"
 #include "Legacy/MCScene.h"
 
 #include <algorithm>
@@ -144,9 +145,8 @@ void MCEngine::IMGUI_INIT() {
 	// Init DX12 backend
 	ImGui_ImplDX12_Init(&initInfo);
 	bool hasTextureFlag = (io.BackendFlags & ImGuiBackendFlags_RendererHasTextures) != 0;
-	OutputDebugStringA(hasTextureFlag
-		? "ImGui: RendererHasTextures = TRUE (correct for 1.92)\n"
-		: "ImGui: RendererHasTextures = FALSE (init failed!)\n");
+	if (hasTextureFlag) MC::LoggingSystem::Info("ImGui: RendererHasTextures = TRUE (correct for 1.92)");
+	else MC::LoggingSystem::Error("ImGui: RendererHasTextures = FALSE (init failed!)");
 
 
 	fresnel_items.reserve(FresnelR0_items.size());
@@ -160,10 +160,11 @@ void MCEngine::IMGUI_INIT() {
 	sobel_items.push_back("Depth");
 	for (const auto& s : sobel_items)
 		sobel_list.push_back(s.c_str());
-	OutputDebugString(L"END saving sobel items\n");
+	MC::LoggingSystem::Debug("END saving sobel items");
 	// Verify
 	IM_ASSERT((ImGui::GetIO().BackendFlags & ImGuiBackendFlags_RendererHasTextures)
 		&& "ImGui DX12 init failed - check Device and CommandQueue are valid");
+	mPlatform.GetInput().SetGates(false, false);
 }
 
 void MCEngine::IMGUI_UPDATE() {
@@ -246,12 +247,9 @@ void MCEngine::IMGUI_UPDATE() {
 		renderW = (std::max)(renderW, 1.0f);
 		renderH = (std::max)(renderH, 1.0f);
 
-		// --- Update render target if dimensions changed ---
-		if ((UINT)renderW != (UINT)mSceneViewWidth || (UINT)renderH != (UINT)mSceneViewHeight) {
-			mSceneViewWidth  = renderW;
-			mSceneViewHeight = renderH;
-			mSceneSizeDirty  = true;
-		}
+		// --- Request new render targets if dimensions changed (applied at the next safe point) ---
+		mRequestedSceneViewWidth  = renderW;
+		mRequestedSceneViewHeight = renderH;
 
 		// --- Apply zoom to get final image size and UV window ---
 		ImVec2 imageSize;
@@ -292,9 +290,10 @@ void MCEngine::IMGUI_UPDATE() {
 		                // :                      (ImTextureID)mViewportNoAlpha.SRVs[0].hGpu.ptr;
 						: (ImTextureID)mSceneColor.SRVs[0].hGpu.ptr;
 
-		mSceneImageSelected = ImGui::IsWindowFocused(ImGuiFocusedFlags_None);
+		const bool viewportFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_None);
 		ImGui::Image(tex, imageSize, uv0, uv1);
 		mSceneImageHovered = ImGui::IsItemHovered();
+		mPlatform.GetInput().SetGates(viewportFocused, mSceneImageHovered);
 		if (mSceneImageHovered) {
 			ImVec2 mousePos = ImGui::GetIO().MousePos;
 			ImVec2 imgMin = ImGui::GetItemRectMin();
@@ -394,16 +393,16 @@ void MCEngine::IMGUI_UPDATE() {
 	ImGui::Begin("Global Inspector"); {
 		ImGui::Text("Cursor: %.0f, %.0f", mSceneMousePos.x, mSceneMousePos.y);
 		if (ImGui::Button("Reload Shaders"))
-			ReloadShaders();
+			mShaderReloadRequest = true;	// applied at the next frame's safe point
 		ImGui::SameLine();
 		// D9 Step 5a — full-scene reload from disk. Save-before-drop preserves
 		// any unsaved ImGui edits to the active scene's module params. Routed
 		// through ReloadActiveSceneNow so the cmdlist is open when grass
 		// module's OnLoad records GPU upload work.
 		if (ImGui::Button("Reload Active Scene")) {
-			try { ReloadActiveSceneNow(); OutputDebugStringA("[reload] active scene reloaded\n"); }
+			try { ReloadActiveSceneNow(); MC::LoggingSystem::Info("[reload] active scene reloaded"); }
 			catch (const std::exception& e) {
-				OutputDebugStringA(("[reload] FAIL: " + std::string(e.what()) + "\n").c_str());
+				MC::LoggingSystem::Error("[reload] FAIL: {}", e.what());
 			}
 		}
 		ImGui::Text("Camera Dirty Count: %d", cameraDirtyCount); ImGui::SameLine();
@@ -412,32 +411,32 @@ void MCEngine::IMGUI_UPDATE() {
 		if (ImGui::Checkbox("Enable BoundingBox", &enableBoundsCheck))
 			if (!enableBoundsCheck)
 				DirtyAllRenderItems();
-		if (ImGui::Checkbox("MCScene MSAA", &mScene4xMsaaState)) // slightly unsynced, but gets synced naturally by next round of frames (thus trivial)
-			mSceneSizeDirty = true;
-		ImGui::Text("CPU Frame: %.3f ms", mTimer.DeltaTime() * 1000.0f);
+		ImGui::Checkbox("MCScene MSAA", &mRequestedMsaa);	// applied at the next frame's safe point
+		ImGui::Text("CPU Frame: %.3f ms", mPlatform.Timer().DeltaTime() * 1000.0f);
 		ImGui::Text("GPU Frame: %.3f ms", mGpuTimer.GetAverageMs(0));
 		ImGui::Text("Instancing culling time: %.3f ms", (float)mInstancingCullingTime);
-		static float time = mTimer.TotalTime();
-		static float percentage = (float)mInstancingCullingTime / (mTimer.DeltaTime() * 10.0f);
-		if (mTimer.TotalTime() - time > 1.0f) {
-			percentage = (float)mInstancingCullingTime / (mTimer.DeltaTime() * 10.0f);
-			time = mTimer.TotalTime();
+		static float time = mPlatform.Timer().TotalTime();
+		static float percentage = (float)mInstancingCullingTime / (mPlatform.Timer().DeltaTime() * 10.0f);
+		if (mPlatform.Timer().TotalTime() - time > 1.0f) {
+			percentage = (float)mInstancingCullingTime / (mPlatform.Timer().DeltaTime() * 10.0f);
+			time = mPlatform.Timer().TotalTime();
 		}
 		ImGui::Text("Instancing culling ratio : %.1f %%", percentage);
 
 		ImGui::Text("ImGui scene Mouse: %d", mSceneImageHovered);
 		ImGui::Text("MCScene ratio: %.0f : %.0f", mSceneViewWidth, mSceneViewHeight);
 		ImGui::Text("Viewport ratio: %.0f : %.0f", viewportAvail.x, viewportAvail.y);
-		ImGui::Text("MCScene dirty: %d", mSceneSizeDirty);
+		ImGui::Text("MCScene rebuild pending: %d", (UINT)mRequestedSceneViewWidth != (UINT)mSceneViewWidth
+			|| (UINT)mRequestedSceneViewHeight != (UINT)mSceneViewHeight || mRequestedMsaa != mScene4xMsaaState);
 		ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
 		ImGui::Checkbox("press 1 for Wireframe", &mIsWireframe);
-		static float fps_target_float = (float)targetFPS;
+		static float fps_target_float = (float)mPlatform.Timer().targetFPS;
 		ImGui::Checkbox("Vsync", &enableVsync);
-		ImGui::Checkbox("Cap FPS", &capFPS);
-		if(capFPS) {
+		ImGui::Checkbox("Cap FPS", &mPlatform.Timer().capFPS);
+		if(mPlatform.Timer().capFPS) {
 			ImGui::SameLine();
-			if (ImGui::SliderFloat("FPS target", &fps_target_float, 30.0f, (float)maxFPS))
-				targetFPS = (double)fps_target_float;
+			if (ImGui::SliderFloat("FPS target", &fps_target_float, 30.0f, (float)mPlatform.Timer().maxFPS))
+				mPlatform.Timer().targetFPS = (double)fps_target_float;
 		}
 		if (ImGui::CollapsingHeader("Ambient light color")) {
 			ImGui::ColorPicker4("Ambient Color", &mAmbientLight.x);
@@ -620,9 +619,9 @@ void MCEngine::IMGUI_UPDATE() {
 		}
 		static bool smAutosaveOnReload = false;
 		if (ImGui::Button("Reload Scene")) {
-			try { ReloadActiveSceneNow(smAutosaveOnReload); OutputDebugStringA("[reload] active scene reloaded\n"); }
+			try { ReloadActiveSceneNow(smAutosaveOnReload); MC::LoggingSystem::Info("[reload] active scene reloaded"); }
 			catch (const std::exception& e) {
-				OutputDebugStringA(("[reload] FAIL: " + std::string(e.what()) + "\n").c_str());
+				MC::LoggingSystem::Error("[reload] FAIL: {}", e.what());
 			}
 		}
 		ImGui::SameLine();
@@ -723,10 +722,10 @@ void MCEngine::IMGUI_TEST()
 				try {
 					mSceneManager.SaveActive((std::filesystem::temp_directory_path() / "scene_test_full.json").string());
 					ReloadActiveSceneNow(false);
-					OutputDebugStringA("[round-trip] save+reload complete; visual check.\n");
+					MC::LoggingSystem::Info("[round-trip] save+reload complete; visual check.");
 				}
 				catch (const std::exception& e) {
-					OutputDebugStringA(("[round-trip] FAIL: " + std::string(e.what()) + "\n").c_str());
+					MC::LoggingSystem::Error("[round-trip] FAIL: {}", e.what());
 				}
 			}
 			ImGui::EndTabItem();
@@ -816,9 +815,9 @@ void MCEngine::IMGUI_TEST()
 				ImGui::PushID(static_cast<int>(h));
 				ImGui::Text("%s", name.c_str()); ImGui::SameLine();
 				if (ImGui::Button("Reload")) {
-					try { mMaterialManager.Reload(h); OutputDebugStringA(("[matreload] " + name + "\n").c_str()); }
+					try { mMaterialManager.Reload(h); MC::LoggingSystem::Info("[matreload] {}", name); }
 					catch (const std::exception& e) {
-						OutputDebugStringA(("[matreload] FAIL " + name + ": " + e.what() + "\n").c_str());
+						MC::LoggingSystem::Error("[matreload] FAIL {}: {}", name, e.what());
 					}
 				}
 				ImGui::PopID();
@@ -830,7 +829,12 @@ void MCEngine::IMGUI_TEST()
 			if (ImGui::Button("Output(Debug) RenderGraph pass"))
 				mFrameGraph->DumpToOutputDebugString();
 			if (ImGui::Button("Dump aliasing plan")) {
-				mFrameGraph->DumpAliasingPlan([](const char* s) { OutputDebugStringA(s); });
+				mFrameGraph->DumpAliasingPlan([](const char* s) {
+					// Each call is one line ending in a newline, which the logger adds itself.
+					std::string_view line(s);
+					if (!line.empty() && line.back() == '\n') line.remove_suffix(1);
+					MC::LoggingSystem::Info("{}", line);
+				});
 			}
 			ImGui::EndTabItem();
 		}

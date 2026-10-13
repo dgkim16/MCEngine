@@ -73,12 +73,18 @@ private:
 // ========== imgui visualization
 public:
 	struct FgPanelRow {
+		struct Usage {
+			const char* resource; // MCResource::Name copied by the last Compile; valid until the next Compile
+			bool        isWrite;
+		};
 		const char* name;        // pass->TypeName()
 		uint32_t    reads;
 		uint32_t    writes;
 		const char* aliasOver;   // nullptr if not aliased
 		bool        culled;
 		float       gpuMs;
+		uint32_t    execIdx;     // UINT32_MAX when culled
+		std::vector<Usage> usages; // Setup declaration order
 	};
 	struct FgPanelData {
 		std::vector<FgPanelRow> rows;
