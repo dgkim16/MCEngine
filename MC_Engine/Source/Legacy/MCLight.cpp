@@ -1,6 +1,7 @@
 #include "Legacy/MCLight.h"
 #include "Renderer/D3D12/DescHeapManager.h"
 #include "Renderer/D3D12/BarrierManager.h"
+#include <cfloat>
 
 namespace {
 	// plane dot(n, p) + d = 0; "inside" is dot(n, p) + d >= 0
@@ -137,6 +138,7 @@ void MCLightManager::UpdateShadowMapPassCBs(FrameResource& currFrameResource) {
 		// so the bias is the same distance under any shadow projection (ortho, PSM, LiSPSM warp). Applied to mShadowTransform only, not the shadow pass
 		const DirectX::XMMATRIX worldBias = DirectX::XMMatrixTranslationFromVector(DirectX::XMVectorScale(DirectX::XMVector3Normalize(L), mLights[i].GetDepthBias()));
 		if (mLights[i].GetShadowMapVolumeType() == ShadowMapVolumeType::ORTHO_LIGHT) {
+			mLights[i].mData.mShadowFar = FLT_MAX; // the sphere fit does not follow the camera, so no pseudo far cutoff
 			if (mLights[i].mData.mLightType == 0) {
 				// Bounding sphere for directional light (not AABB bounding box) to get cube bounds
 				// (frustrum-like - rotational orientation follows light coordin.syst, but position of frustrum is centered / affected by scene center, not light position)
@@ -289,8 +291,11 @@ void MCLightManager::UpdateShadowMapPassCBs(FrameResource& currFrameResource) {
 			for (int c = 0; c < 8; ++c) {
 				worldCorner[c] = XMVector3TransformCoord(XMLoadFloat3(&ndcCorners[c]), invCamViewProj); // vector matrix mult
 			}
-			const float maxShadowDist = mLights[i].GetShadowMapFrustum();
-			const float s = std::clamp((maxShadowDist - cached.gNearZ) / (cached.gFarZ - cached.gNearZ), 0.0f, 1.0f);
+			// pseudo far plane: the fitted body ends here, and the shaders treat receivers past it as lit.
+			// past it the warp maps receivers outside the map or past depth 1, so the lookup would read them as shadowed
+			const float maxShadowDist = std::clamp(mLights[i].GetPseudoFar(), cached.gNearZ, cached.gFarZ);
+			mLights[i].mData.mShadowFar = maxShadowDist;
+			const float s = (maxShadowDist - cached.gNearZ) / (cached.gFarZ - cached.gNearZ);
 			for (int c = 0; c < 4; ++c)
 				worldCorner[c] = DirectX::XMVectorLerp(worldCorner[c + 4], worldCorner[c], s); // use a closer far plane. xyz all scaled.
 

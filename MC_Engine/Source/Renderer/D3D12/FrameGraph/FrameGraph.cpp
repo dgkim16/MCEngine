@@ -37,6 +37,7 @@ struct FrameGraph::Impl {
         std::variant<MCResource*, FgResourceHandle> resource;
         D3D12_RESOURCE_STATES required;
         bool isWrite;
+        uint32_t producer = UINT32_MAX; // to handle versioning
     };
 
     struct TransientEntry {
@@ -511,16 +512,16 @@ void FrameGraph::End() {
     }
 }
 
-// create a DAG using RAW/WAW dependencies
+// create a DAG using RAW/WAW/WAR dependencies
 // then produce a topological ordering of DAG (Kahn's algorithm)
 // read-only against engine
 void FrameGraph::Compile(BarrierManager& bm, CpuTimer& cpuTimer) {
     CPU_SCOPED(cpuTimer, "FrameGraph::Compile");
     auto& s = *mImpl;
     const uint32_t N = static_cast<uint32_t>(mBorrowedPasses.size());
-    // === A. Setup phase ===
+    // === A1. Setup phase ===
     {
-        CPU_SCOPED(cpuTimer, "[FG::Compile][A] Setup");
+        CPU_SCOPED(cpuTimer, "[FG::Compile][A1] Setup");
         s.mPassUsages.assign(N, {}); // N: count, {}: value
         for (uint32_t i = 0; i < N; ++i) {
             RenderPassBuilder b(this, i);
@@ -528,6 +529,30 @@ void FrameGraph::Compile(BarrierManager& bm, CpuTimer& cpuTimer) {
         }
     }
 
+    // === A2. walk all passes
+    std::vector<std::pair<uint32_t, uint32_t>> warEdges; // (reader, later writer)
+    {
+        CPU_SCOPED(cpuTimer, "[FG::Compile][A2] WalkAllPass");
+        using Key = std::variant<MCResource*, FgResourceHandle>;          // already hashable
+        struct Cursor { uint32_t producer = UINT32_MAX; std::vector<uint32_t> readers; };
+        std::unordered_map<Key, Cursor> cursor;
+        for (uint32_t p = 0; p < N; ++p) {
+            for (auto& u : s.mPassUsages[p]) {            // reads first: a read+write pass reads the incoming version
+                if (u.isWrite) continue;
+                auto& c = cursor[u.resource];
+                u.producer = c.producer;
+                c.readers.push_back(p);
+            }
+            for (auto& u : s.mPassUsages[p]) {
+                if (!u.isWrite) continue;
+                auto& c = cursor[u.resource];
+                u.producer = c.producer;                  // WAW predecessor
+                for (uint32_t r : c.readers) warEdges.push_back({ r, p });
+                c.producer = p;                           // new version
+                c.readers.clear();
+            }
+        }
+    }
 
 
     // === B. Cull ===
@@ -551,8 +576,8 @@ void FrameGraph::Compile(BarrierManager& bm, CpuTimer& cpuTimer) {
         }
         return it->second.resource.get();
         };
-    std::unordered_map<MCResource*, std::vector<uint32_t>> writers;
-    std::unordered_map<MCResource*, std::vector<uint32_t>> readers;
+    // std::unordered_map<MCResource*, std::vector<uint32_t>> writers;
+    // std::unordered_map<MCResource*, std::vector<uint32_t>> readers;
 
     std::vector<std::vector<uint32_t>> adj(N);// adj[i] = {j, k} : pass i depends on pass j and k - therefore pass j and k must run before pass i
     std::vector<uint32_t> inDegree(N, 0); // inDegree[i] : # of passes pass_i depends on
@@ -561,7 +586,7 @@ void FrameGraph::Compile(BarrierManager& bm, CpuTimer& cpuTimer) {
     std::priority_queue<uint32_t, std::vector<uint32_t>, std::greater<uint32_t>> ready;
 
     {
-        CPU_SCOPED(cpuTimer, "[FG::Compile][C] DependencyGraph");
+        CPU_SCOPED(cpuTimer, "[FG::Compile][C] DependencyGraph"); /*
         for (uint32_t i = 0; i < N; ++i) {
             if (!mImpl->mLiveSet[i]) continue; // cull non-live
             for (const auto& u : s.mPassUsages[i]) {
@@ -570,7 +595,7 @@ void FrameGraph::Compile(BarrierManager& bm, CpuTimer& cpuTimer) {
                 MCResource* res = ResolveUsageResource(u);
                 (u.isWrite ? writers : readers)[res].push_back(i);
             }
-        }
+        }*/
 
         auto addEdge = [&](uint32_t from, uint32_t to) { // captures all four containers by reference
             if (from == to) return; // degenerate case (write & read from same source within pass)
@@ -580,21 +605,29 @@ void FrameGraph::Compile(BarrierManager& bm, CpuTimer& cpuTimer) {
             } // only true insertion mutates adj and inDegree
             };
 
-        // RAW: every writer of R precedes every reader of R. (Read After Write)
+        /* // RAW: every writer of R precedes every reader of R. (Read After Write)
         for (auto& [res, ws] : writers) {
             auto rit = readers.find(res);
             if (rit == readers.end()) continue; // no readers for this resource; skip
             for (uint32_t w : ws)
                 for (uint32_t r : rit->second)
                     addEdge(w, r); // every writer w must precede every reader r
-        }
+        } */
 
-        // WAW: earlier-registered writer precedes later-registered writer of the same R.
+        /* // WAW: earlier-registered writer precedes later-registered writer of the same R.
         for (auto& [res, ws] : writers) {
             for (size_t i = 0; i < ws.size(); ++i)
                 for (size_t j = 0; j < ws.size(); ++j)
                     if (ws[i] < ws[j]) addEdge(ws[i], ws[j]);
+        }*/
+
+        for (uint32_t i = 0; i < N; ++i) {
+            if (!s.mLiveSet[i]) continue;
+            for (const auto& u : s.mPassUsages[i])
+                if (u.producer != UINT32_MAX) addEdge(u.producer, i); // RAW (read) / WAW (write)
         }
+        for (auto [r, w] : warEdges)
+            if (s.mLiveSet[r] && s.mLiveSet[w]) addEdge(r, w);        // WAR
     }
 
     // topoOrder contains every pass that participated in the sort, 
@@ -853,6 +886,37 @@ void FrameGraph::SetDebugPrePassHook(std::function<void(ID3D12GraphicsCommandLis
 #endif
 
 void FrameGraph::ComputeLiveSet() {
+    auto& s = *mImpl;
+    const uint32_t N = static_cast<uint32_t>(mBorrowedPasses.size());
+    s.mLiveSet.assign(N, false);
+
+    std::vector<uint32_t> work;
+    auto markLive = [&](uint32_t p) {
+        if (p != UINT32_MAX && !s.mLiveSet[p]) { s.mLiveSet[p] = true; work.push_back(p); }
+        };
+
+    // 1. root: the last registered writer produces the version consumed outside the graph
+    for (MCResource* root : s.mRoots) {
+        for (uint32_t p = N; p-- > 0; ) {
+            bool writesRoot = false;
+            for (const auto& u : s.mPassUsages[p]) {
+                if (!u.isWrite) continue;
+                if (!std::holds_alternative<MCResource*>(u.resource)) continue;
+                if (std::get<MCResource*>(u.resource) == root) { writesRoot = true; break; }
+            }
+            if (writesRoot) { markLive(p); break; }
+        }
+    }
+
+    // 2. closure over versions: a live pass keeps alive the producer of every version it touches
+    while (!work.empty()) {
+        uint32_t p = work.back(); work.pop_back();
+        for (const auto& u : s.mPassUsages[p]) markLive(u.producer);
+    }
+    return; 
+
+#if 0
+    // ================== OLD CODE, kept for reference ==============
     const uint32_t N = static_cast<uint32_t>(mBorrowedPasses.size());
     mImpl->mLiveSet.assign(N, false);
     // 1. marking passes writing to root resource as 'live' pass.
@@ -892,6 +956,8 @@ void FrameGraph::ComputeLiveSet() {
             }
         }
     }
+    // ================== END OF OLD CODE, kept for reference ==============
+#endif
 }
 
 // helper called by RenderPassBuilder

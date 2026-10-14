@@ -104,6 +104,7 @@ struct LightData
     int mLightType;             // 0 directional, 1 point, 2 spot, 3 count
     int mCastShadow;            // 0 is no-cast. 1 is caster.
     int mShadowMapIndex;
+    float mShadowFar;           // camera view depth past which receivers are lit (pseudo far plane). Written every frame by MCLightManager
 };
 
 // this is CBV, so must be 16 bytes-aligned

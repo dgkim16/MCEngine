@@ -127,7 +127,11 @@ float4 PS(GeoOut pin) : SV_Target
     float distToEye = length(toEyeW);
     toEyeW = normalize(toEyeW);
     // toEyeW /= distToEye; // normalize
-    float4 litColor = LunaPhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir);
+    float4 litColor = gAmbientLight.a < 0.25f
+                    ? classicBlinnPhong(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir)
+                    : gAmbientLight.a < 0.5f
+                    ? LunaPhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir)
+                    : PhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir);
 #ifdef FOG
 	float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
 	litColor = lerp(litColor, gFogColor, fogAmount);

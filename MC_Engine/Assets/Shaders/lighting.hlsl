@@ -23,6 +23,32 @@ float Attenuation(float attenDist, float attenLength)
     return smoothstep(0.0f, 1.0f, attenLength/attenDist);   // might need to flip 0 and 1
 }
 
+
+float4 PhongBRDF(float4 diffuseAlbedo, float4 ambientLight, float3 fresnelR0, float3 normal, float3 toEyeW, float3 posW, float shininess, LightData light, float3 lightDir)
+{
+    float3 N = normalize(normal);
+    float3 L = normalize(lightDir);
+    float3 V = normalize(toEyeW);
+
+    // vec3 Kd = diffuse;   
+    float3 H = normalize(L + V);
+    float LN = max(dot(L, N), 0.0);
+    float HN = max(dot(H, N), 0.0);
+    float LH = max(dot(H, L), 0.001);
+
+    float3 Kd = diffuseAlbedo.xyz;
+    // Schlick approx. Frensel term
+    float alpha_shininess = max(shininess * 256.0, 1.0);
+    // float3 F = SchlickFresnel(fresnelR0, H, L);
+    float3 F = fresnelR0 + (1.0 - fresnelR0) * pow((1.0 - LH), 5.0);
+    // Phong D term
+    float D = (alpha_shininess + 2.0) / (2.0 * 3.141592) * pow(HN, alpha_shininess);
+    
+    float3 BRDF = (Kd / 3.141592 + F * D / (4 * pow(LH, 2)));
+
+    return float4(light.mLightColor * LN * BRDF + ambientLight.rgb * Kd, 1.0f);
+}
+
 // shininess must be between 0 and 1 (1.0f-roughness)
 // this is Luna's version of normalized Phong BRDF: 1/PI diffuse, (m+8)/8 lobe, (1-F_ split, Fresnel on N-L
 // all vector params must be normalized prior to calling this fxn except data inside LightData
@@ -86,9 +112,4 @@ float4 classicBlinnPhong(float4 diffuseAlbedo, float4 ambientLight, float3 fresn
     // C = ambient + I * ( kd*(n·l) + ks*(n·h)^alpha )
     float3 rgb = ambientLight.rgb * diffuseAlbedo.rgb + (diffuse + specular) * I;
     return float4(saturate(rgb), 1.0f);
-}
-
-float4 PhongBRDF()
-{
-    return float4(1.0f,1.0f,1.0f,1.0f);
 }

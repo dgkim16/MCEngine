@@ -44,6 +44,8 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <array>
+#include <chrono>
 
 struct CSB_blurValues // blur related values changed via imgui — CPU-only, not GPU-facing
 {
@@ -295,6 +297,21 @@ private:
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 	FrameResource* mCurrFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
+
+	// --- Frame-slot turnaround: time from a slot's Present until the slot is reused (after its fence wait) ---
+	// Samples carry a timestamp so the UI can average over a time window (0.5 s), not a sample count.
+	struct SlotTurnaround {
+		static constexpr int kRingSize = 256;    // per slot; covers 0.5 s up to ~1500 fps with 3 slots
+		std::array<float, kRingSize>  ms{};      // turnaround in ms
+		std::array<float, kRingSize>  waitMs{};  // the fence-wait part of the turnaround, in ms (0 when the GPU was already done)
+		std::array<double, kRingSize> atSec{};   // when the sample was recorded (seconds since mTurnaroundEpoch)
+		int head = 0;                            // next write slot
+		int filled = 0;                          // valid count (caps at kRingSize)
+		std::chrono::steady_clock::time_point presentedAt{};
+		bool presented = false;                  // set at Present, cleared when the slot is reused; skips frames that never presented
+	};
+	std::array<SlotTurnaround, gNumFrameResources> mSlotTurnaround;
+	const std::chrono::steady_clock::time_point mTurnaroundEpoch = std::chrono::steady_clock::now();
 	int total_objects = 0;	// updated by MCSceneManager::Switch via SceneAccess::TotalObjects (== active scene's allRitems.size())
 
 	// --- Pipeline objects (root signatures / PSOs / input layouts) ---

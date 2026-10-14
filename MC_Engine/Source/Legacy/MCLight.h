@@ -105,6 +105,8 @@ public:
     void SetWarpAmount(float f) { warpAmount = f; }
     const float GetPseudoNear() const { return pseudoNear; }
     void SetPseudoNear(float f) { pseudoNear = f; }
+    const float GetPseudoFar() const { return pseudoFar; }
+    void SetPseudoFar(float f) { pseudoFar = f; }
     const bool GetClipToScene() const { return clipToScene; }
     void SetClipToScene(bool b) { clipToScene = b; }
     
@@ -115,6 +117,7 @@ public:
 private:
     float warpAmount = -0.1f;
     float pseudoNear = 1.0f;    // PERSP_VIEW: z_n used by n_opt is max(camera near, this). Keeps a tiny camera near plane from over-warping
+    float pseudoFar = 40.0f;    // PERSP_VIEW: z_f used by n_opt and the far end of the fitted body. Receivers past it are lit, not shadowed
     bool clipToScene = true;    // PERSP_VIEW: fit only the part of the view frustum inside the scene bounds
     float depthBias = 0.01f;
     int mShadowMapResolution = 1024;

@@ -558,6 +558,14 @@ void MCEngine::IMGUI_UPDATE() {
 			if (dBCh)
 				dL.SetPseudoNear(pseudoNear);
 
+			ImGui::SetNextItemWidth(inputfloat_width);
+			float pseudoFar = dL.GetPseudoFar();
+			dBCh = ImGui::InputFloat("pseudo far", &pseudoFar);
+			ImGui::SameLine();
+			dBCh = ImGui::SliderFloat("pseudo far slider", &pseudoFar, 1.0f, 200.0f);
+			if (dBCh)
+				dL.SetPseudoFar(pseudoFar);
+
 			bool clipToScene = dL.GetClipToScene();
 			if (ImGui::Checkbox("clip fit to scene bounds", &clipToScene))
 				dL.SetClipToScene(clipToScene);
@@ -643,35 +651,91 @@ void MCEngine::IMGUI_UPDATE() {
 
 void MCEngine::IMGUI_FRAMEPROFILE() {
 	ImGui::Begin("Frame Profiles"); {
-		const int n = mGpuTimer.RegisteredCount();
-		std::vector<std::pair<float, TimerID>> rows;
-		rows.reserve(n);
-		for (TimerID id = 0; id < (TimerID)n; ++id)
-			rows.emplace_back(mGpuTimer.GetAverageMs(id), id);
-		std::sort(rows.begin(), rows.end(),
-			[](const auto& a, const auto& b) { return a.first > b.first; });
+		if (ImGui::BeginTabBar("frame_profile_tabs")) {
+			if (ImGui::BeginTabItem("GPU passes")) {
+				const int n = mGpuTimer.RegisteredCount();
+				std::vector<std::pair<float, TimerID>> rows;
+				rows.reserve(n);
+				for (TimerID id = 0; id < (TimerID)n; ++id)
+					rows.emplace_back(mGpuTimer.GetAverageMs(id), id);
+				std::sort(rows.begin(), rows.end(),
+					[](const auto& a, const auto& b) { return a.first > b.first; });
 
-		if (ImGui::BeginTable("gpu_timers", 3,
-			ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
-			ImGui::TableSetupColumn("Pass");
-			ImGui::TableSetupColumn("GPU avg (ms)");
-			ImGui::TableSetupColumn("Trend");
-			ImGui::TableHeadersRow();
-			for (auto& [ms, id] : rows) {
-				ImGui::TableNextRow();
-				ImGui::PushID(static_cast<int>(id));
-				ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(mGpuTimer.Name(id).c_str());
-				ImGui::TableSetColumnIndex(1); ImGui::Text("%.3f", ms);
-				ImGui::TableSetColumnIndex(2);
-				
-				const float* data = mGpuTimer.SamplesData(id);
-				const int head = mGpuTimer.SamplesHead(id);
-				const int count = mGpuTimer.SamplesCount();
-				ImGui::PlotLines("##spark", data, count, head, nullptr,
-					0.0f, FLT_MAX, ImVec2(80, 16));
-				ImGui::PopID();
+				if (ImGui::BeginTable("gpu_timers", 3,
+					ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
+					ImGui::TableSetupColumn("Pass");
+					ImGui::TableSetupColumn("GPU avg (ms)");
+					ImGui::TableSetupColumn("Trend");
+					ImGui::TableHeadersRow();
+					for (auto& [ms, id] : rows) {
+						ImGui::TableNextRow();
+						ImGui::PushID(static_cast<int>(id));
+						ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(mGpuTimer.Name(id).c_str());
+						ImGui::TableSetColumnIndex(1); ImGui::Text("%.3f", ms);
+						ImGui::TableSetColumnIndex(2);
+
+						const float* data = mGpuTimer.SamplesData(id);
+						const int head = mGpuTimer.SamplesHead(id);
+						const int count = mGpuTimer.SamplesCount();
+						ImGui::PlotLines("##spark", data, count, head, nullptr,
+							0.0f, FLT_MAX, ImVec2(80, 16));
+						ImGui::PopID();
+					}
+					ImGui::EndTable();
+				}
+				ImGui::EndTabItem();
 			}
-			ImGui::EndTable();
+			if (ImGui::BeginTabItem("Frame slots")) {
+				ImGui::TextWrapped("Per frame resource: time from Present until the slot is reused (turnaround), "
+					"and the fence-wait part of it. Averages over the last 0.5 s. "
+					"A fence wait above zero means the CPU got ahead of the GPU (GPU-bound).");
+				constexpr double kWindowSec = 0.5;
+				const double nowSec = std::chrono::duration<double>(
+					std::chrono::steady_clock::now() - mTurnaroundEpoch).count();
+
+				// One y-scale per metric for every slot, so the graphs compare directly.
+				float turnScale = 1.0f, waitScale = 1.0f;
+				for (const auto& t : mSlotTurnaround)
+					for (int k = 0; k < t.filled; ++k) {
+						turnScale = (std::max)(turnScale, t.ms[k]);
+						waitScale = (std::max)(waitScale, t.waitMs[k]);
+					}
+				turnScale *= 1.1f;
+				waitScale *= 1.1f;
+
+				for (int slot = 0; slot < gNumFrameResources; ++slot) {
+					const auto& t = mSlotTurnaround[slot];
+					float turnSum = 0.0f, turnMax = 0.0f, waitSum = 0.0f, waitMax = 0.0f;
+					int n = 0;
+					for (int k = 1; k <= t.filled; ++k) {   // newest to oldest
+						const int i = (t.head - k + SlotTurnaround::kRingSize) % SlotTurnaround::kRingSize;
+						if (t.atSec[i] < nowSec - kWindowSec) break;
+						turnSum += t.ms[i];
+						turnMax = (std::max)(turnMax, t.ms[i]);
+						waitSum += t.waitMs[i];
+						waitMax = (std::max)(waitMax, t.waitMs[i]);
+						++n;
+					}
+					const float turnAvg = n ? turnSum / n : 0.0f;
+					const float waitAvg = n ? waitSum / n : 0.0f;
+
+					ImGui::PushID(slot);
+					ImGui::SeparatorText((std::string("Slot ") + std::to_string(slot)).c_str());
+					ImGui::Text("turnaround  avg %.3f ms   max %.3f ms   (%d samples in 0.5 s)", turnAvg, turnMax, n);
+					char overlay[32];
+					std::snprintf(overlay, sizeof(overlay), "avg %.2f ms", turnAvg);
+					ImGui::PlotLines("##turnaround", t.ms.data(), SlotTurnaround::kRingSize, t.head,
+						overlay, 0.0f, turnScale, ImVec2(-1.0f, 60.0f));
+
+					ImGui::Text("fence wait  avg %.3f ms   max %.3f ms", waitAvg, waitMax);
+					std::snprintf(overlay, sizeof(overlay), "avg %.2f ms", waitAvg);
+					ImGui::PlotLines("##fencewait", t.waitMs.data(), SlotTurnaround::kRingSize, t.head,
+						overlay, 0.0f, waitScale, ImVec2(-1.0f, 40.0f));
+					ImGui::PopID();
+				}
+				ImGui::EndTabItem();
+			}
+			ImGui::EndTabBar();
 		}
 	}ImGui::End();
 }

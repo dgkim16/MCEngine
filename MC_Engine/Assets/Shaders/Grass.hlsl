@@ -223,11 +223,17 @@ float4 PS(DomainOut pin) : SV_Target
     // float4 litColor = ambient + saturate(float4((Kd + specAlbedo) * Intensity, 1.0f));
     float3 fresnelr0 = matData.FresnelR0;
     float roughness = matData.Roughness;
-    float4 litColor = LunaPhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, lightingN, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], gLightData[0].mLightDirection); // this must be changed to use pin.LightVec
+    float4 litColor = gAmbientLight.a < 0.25f
+                    ? classicBlinnPhong(diffuseAlbedo, gAmbientLight, fresnelr0, lightingN, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], gLightData[0].mLightDirection)
+                    : gAmbientLight.a < 0.5f
+                    ? LunaPhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, lightingN, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], gLightData[0].mLightDirection) // this must be changed to use pin.LightVec
+                    : PhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, lightingN, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], gLightData[0].mLightDirection);
     // Fog
     if (gLightData[0].mShadowMapIndex != -1)
     {
-        float shadowFactor = gLightData[0].mCastShadow ? CalcShadowFactor(pin.ShadowPosH, gLightData[0].mShadowMapIndex) : 1.0f;
+        // past the pseudo far plane the shadow map holds nothing for this receiver: lit, not shadowed
+        bool inShadowRange = mul(float4(pin.PosW, 1.0f), gView).z <= gLightData[0].mShadowFar;
+        float shadowFactor = (gLightData[0].mCastShadow && inShadowRange) ? CalcShadowFactor(pin.ShadowPosH, gLightData[0].mShadowMapIndex) : 1.0f;
         litColor.rgb *= shadowFactor;
     }
     float distToEye = length(gEyePosW - pin.PosW);

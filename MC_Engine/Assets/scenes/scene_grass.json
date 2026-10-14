@@ -19,8 +19,8 @@
       "name": "grass_blade_mesh",
       "params": {
         "height": 1.0,
-        "sharpness": 0.7200000286102295,
-        "width": 0.4699999988079071
+        "sharpness": 1.0,
+        "width": 0.12399999797344208
       }
     }
   ],
@@ -28,8 +28,8 @@
     {
       "params": {
         "equalColor": true,
-        "grassCountDepth": 299,
-        "grassCountWidth": 314,
+        "grassCountDepth": 1000,
+        "grassCountWidth": 1000,
         "grassCoverageDepth": 110.69000244140625,
         "grassCoverageWidth": 114.61000061035156,
         "grassRitemName": "quad",

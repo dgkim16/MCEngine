@@ -93,14 +93,18 @@ float4 PS(VertexOut pin) : SV_Target
     float3 toEyeW = gEyePosW - pin.PosW;
     float distToEye = length(toEyeW);
     toEyeW /= distToEye; // normalize
-    float4 litColor = gAmbientLight.a > 0.5f 
+    float4 litColor = gAmbientLight.a < 0.25f
+                    ? classicBlinnPhong(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir)
+                    : gAmbientLight.a < 0.5f
                     ? LunaPhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir)
-                    : classicBlinnPhong(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir);
+                    : PhongBRDF(diffuseAlbedo, gAmbientLight, fresnelr0, normal, toEyeW, pin.PosW, 1.0 - roughness, gLightData[0], pin.LightDir);
     if (gLightData[0].mShadowMapIndex != -1)
     {
-        float shadowFactor = gLightData[0].mCastShadow ? CalcShadowFactor(pin.ShadowPosH, gLightData[0].mShadowMapIndex, gLightData[0].depthBias) : 1.0f;
+        // past the pseudo far plane the shadow map holds nothing for this receiver: lit, not shadowed
+        bool inShadowRange = mul(float4(pin.PosW, 1.0f), gView).z <= gLightData[0].mShadowFar;
+        float shadowFactor = (gLightData[0].mCastShadow && inShadowRange) ? CalcShadowFactor(pin.ShadowPosH, gLightData[0].mShadowMapIndex, gLightData[0].depthBias) : 1.0f;
         // shadow attenuates direct light only; ambient term matches the one each lighting function adds
-        float3 ambient = gAmbientLight.a > 0.5f
+        float3 ambient = (gAmbientLight.a >= 0.25f && gAmbientLight.a < 0.5f) // LunaPhongBRDF tints ambient by the light color
                        ? gAmbientLight.rgb * diffuseAlbedo.rgb * gLightData[0].mLightColor
                        : gAmbientLight.rgb * diffuseAlbedo.rgb;
         litColor.rgb = ambient + (litColor.rgb - ambient) * shadowFactor;

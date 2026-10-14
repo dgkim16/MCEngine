@@ -551,12 +551,24 @@ void MCEngine::BeginGpuFrame()
 
 	// Has the GPU finished processing the commands of the current frame resource?
 	// If not, wait until the GPU has completed commands up to this fence point.
+	const auto waitBegin = std::chrono::steady_clock::now();
 	if (mCurrFrameResource->Fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->Fence)
 	{
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
 		ThrowIfFailed(mFence->SetEventOnCompletion(mCurrFrameResource->Fence, eventHandle));
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
+	}
+	// Slot turnaround: Present of this slot's last frame -> now (fence wait included).
+	auto& turn = mSlotTurnaround[mCurrFrameResourceIndex];
+	if (turn.presented) {
+		const auto now = std::chrono::steady_clock::now();
+		turn.ms[turn.head] = static_cast<float>(std::chrono::duration<double, std::milli>(now - turn.presentedAt).count());
+		turn.waitMs[turn.head] = static_cast<float>(std::chrono::duration<double, std::milli>(now - waitBegin).count());
+		turn.atSec[turn.head] = std::chrono::duration<double>(now - mTurnaroundEpoch).count();
+		turn.head = (turn.head + 1) % SlotTurnaround::kRingSize;
+		if (turn.filled < SlotTurnaround::kRingSize) ++turn.filled;
+		turn.presented = false;
 	}
 	mGpuTimer.ReadbackForFrame(mCurrFrameResourceIndex);
 }
@@ -963,6 +975,8 @@ void MCEngine::RenderFrame()
 	UINT presentFlags = mTearingSupported && !enableVsync ? DXGI_PRESENT_ALLOW_TEARING : 0;
 	UINT syncInterval = mTearingSupported && !enableVsync ? 0 : 1;
 	ThrowIfFailed(mSwapChain->Present(syncInterval, presentFlags)); // set SyncInterval to 1~4 to enable VSYNC (it gets enabled by default by dxgi tho, so need to use flags to disable it)
+	mSlotTurnaround[mCurrFrameResourceIndex].presentedAt = std::chrono::steady_clock::now();
+	mSlotTurnaround[mCurrFrameResourceIndex].presented = true;
 	// mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
 
 	mCurrFrameResource->Fence = ++mCurrentFence;						// Instead of flushing, advance the fence value to mark commands up to this fence point
